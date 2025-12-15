@@ -41,7 +41,7 @@ private def runTest(
 private def executeTest(
     size: Int,
     body: (Rand, Params, Size, Assert) ?=> Unit
-): Rand ?->{body} Rand.Recorded [Result] =
+): (Shrink, Rand) ?->{body} Rand.Recorded [Result] =
   Rand.record(runTest(size, body)) match
     case Rand.Recorded(Params.Recorded(Assertion.Success, _), state) =>
       Rand.Recorded(Result.Success, state)
@@ -72,7 +72,7 @@ def runOne(
 def executeOne(
     size: Int,
     body: (Rand, Params, Size, Assert) ?=> Unit
-): Rand ?->{body} Result =
+): (Shrink, Rand) ?->{body} Result =
   executeTest(size, body).value
 
 case class Configuration(minSuccess: Int, minSize: Int, maxSize: Int)
@@ -84,22 +84,23 @@ case class Configuration(minSuccess: Int, minSize: Int, maxSize: Int)
   *
   * Failed tests will be reduced in an attempt to provide a minimal reproduction scenario.
   */
-def execute(conf: Configuration, body: (Rand, Params, Size, Assert) ?=> Unit): TestOutcome =
+def execute(conf: Configuration, body: (Rand, Params, Size, Assert) ?=> Unit): Shrink ?->{body} TestOutcome =
   val sizeStep = (conf.maxSize - conf.minSize) / conf.minSuccess
 
   def loop(count: Int, size: Int): TestOutcome =
     val seed = scala.util.Random.nextLong
 
-    Rand.withSeed(seed):
-      executeTest(size, body) match
-        case Rand.Recorded(Result.Success, state) =>
-          // If the state is empty, this is not a random-based test and there's no need to try it more than once.
-          // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
-          val success = state.isEmpty || count >= conf.minSuccess
+    Shrink:
+      Rand.withSeed(seed):
+        executeTest(size, body) match
+          case Rand.Recorded(Result.Success, state) =>
+            // If the state is empty, this is not a random-based test and there's no need to try it more than once.
+            // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
+            val success = state.isEmpty || count >= conf.minSuccess
 
-          if success then TestOutcome(count + 1, seed, Result.Success)
-          else loop(count + 1, size + sizeStep)
+            if success then TestOutcome(count + 1, seed, Result.Success)
+            else loop(count + 1, size + sizeStep)
 
-        case Rand.Recorded(e: Result.Failure, _) => TestOutcome(count, seed, e)
+          case Rand.Recorded(e: Result.Failure, _) => TestOutcome(count, seed, e)
 
   loop(0, conf.minSize)
