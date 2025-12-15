@@ -38,6 +38,23 @@ object Shrink:
 
     body
 
+  // - Caching shrinker ------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------------------
+  /** Handler that caches previously seen test cases and avoids re-running them. */
+  def caching[A](maxSize: Int)(body: Shrink ?=> A): Shrink ?->{body} A = handler ?=>
+    val cache = new java.util.LinkedHashMap[Rand.State, Unit](16, 0.75, true):
+      override def removeEldestEntry(eldest: java.util.Map.Entry[Rand.State, Unit]) = size > maxSize
+
+    def isNew(state: Rand.State) =
+      if cache.containsKey(state) then false
+      else
+        cache.put(state, ())
+        true
+
+    given Shrink = state => handler.shrink(state).filter(isNew)
+
+    body
+
   // - Noop shrinker ---------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   /** Provides a `Shrink` handler that doesn't actually shrink.

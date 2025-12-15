@@ -37,7 +37,6 @@ trait TestSuite:
             case (name, value) => println(s"    - $name = $value")
     print(Console.RESET)
 
-
   def testNoShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Unit =
     Shrink.noop:
       printOutcome(desc, execute(conf, body))
@@ -49,4 +48,5 @@ trait TestSuite:
 
   def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Unit =
     Shrink:
-      printOutcome(desc, execute(conf, body))
+      Shrink.caching(1000):
+        printOutcome(desc, execute(conf, body))
