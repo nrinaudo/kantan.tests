@@ -13,7 +13,7 @@ import caps.*
 /** Status of a test, either a success or a failure. */
 enum Result:
   case Success
-  case Failure(shrinkCount: Int, msg: String, params: Params.Values)
+  case Failure(shrinkCount: Int, size: Int, msg: String, params: Params.Values)
 
 /** Description of a test's execution. */
 case class TestOutcome(successCount: Int, seed: Long, result: Result)
@@ -44,7 +44,7 @@ private def executeTest(
       Rand.Recorded(Result.Success, state)
 
     case Rand.Recorded(Params.Recorded(Assertion.Failure(msg), params), state) =>
-      Rand.Recorded(shrink(body, Result.Failure(0, msg, params), state, size), state)
+      Rand.Recorded(shrink(body, Result.Failure(0, size, msg, params), state, size), state)
 
 // - Test running ------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
@@ -54,9 +54,11 @@ private def executeTest(
   * state.
   */
 def runOne(body: (Rand, Params, Size, Assert) ?=> Unit): (Rand, Size) ?->{body} Result =
+  val size = Size.size
+
   runTest(body) match
     case Params.Recorded(Assertion.Success, _)           => Result.Success
-    case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, msg, params)
+    case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, size, msg, params)
 
 /** Runs the specified test, and attempts to shrink failing test cases.
   *

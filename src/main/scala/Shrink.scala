@@ -72,7 +72,7 @@ private def runState(
         .record(runTest(body))
         .map:
           case Params.Recorded(Assertion.Success, _)           => Result.Success
-          case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, msg, params)
+          case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, size, msg, params)
 
 /** Shrinks the specified test, known to have failed with `failure` on state `state`. */
 private def shrink(
