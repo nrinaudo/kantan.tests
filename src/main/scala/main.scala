@@ -25,24 +25,21 @@ case class TestOutcome(successCount: Int, seed: Long, result: Result)
   *
   * This is intended for internal use only.
   */
-private def runTest(
-    size: Int,
-    body: (Rand, Params, Size, Assert) ?=> Unit
-): Rand ?->{body} Params.Recorded [Assertion] =
+private def runTest(body: (Rand, Params, Size, Assert) ?=> Unit): (Rand, Size) ?->{body} Params.Recorded [Assertion] =
   Params:
-    Size(size):
-      Assert:
-        body
+    Assert:
+      body
 
 /** Runs a single test, and attempts to shrink failing test cases.
   *
   * This is intended for internal purposes only.
   */
 private def executeTest(
-    size: Int,
     body: (Rand, Params, Size, Assert) ?=> Unit
-): (Shrink, Rand) ?->{body} Rand.Recorded [Result] =
-  Rand.record(runTest(size, body)) match
+): (Rand, Shrink, Size) ?->{body} Rand.Recorded [Result] =
+  val size = Size.size
+
+  Rand.record(runTest(body)) match
     case Rand.Recorded(Params.Recorded(Assertion.Success, _), state) =>
       Rand.Recorded(Result.Success, state)
 
@@ -56,11 +53,8 @@ private def executeTest(
   * This is intended to replay known failing test cases, perhaps by using a known random seed or a recorded failing
   * state.
   */
-def runOne(
-    size: Int,
-    body: (Rand, Params, Size, Assert) ?=> Unit
-): Rand ?->{body} Result =
-  runTest(size, body) match
+def runOne(body: (Rand, Params, Size, Assert) ?=> Unit): (Rand, Size) ?->{body} Result =
+  runTest(body) match
     case Params.Recorded(Assertion.Success, _)           => Result.Success
     case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, msg, params)
 
@@ -69,11 +63,8 @@ def runOne(
   * This is intended to replay known failing test cases, perhaps by using a known random seed or a recorded failing
   * state.
   */
-def executeOne(
-    size: Int,
-    body: (Rand, Params, Size, Assert) ?=> Unit
-): (Shrink, Rand) ?->{body} Result =
-  executeTest(size, body).value
+def executeOne(body: (Rand, Params, Size, Assert) ?=> Unit): (Rand, Shrink, Size) ?->{body} Result =
+  executeTest(body).value
 
 case class Configuration(minSuccess: Int, minSize: Int, maxSize: Int)
 
@@ -90,17 +81,18 @@ def execute(conf: Configuration, body: (Rand, Params, Size, Assert) ?=> Unit): S
   def loop(count: Int, size: Int): TestOutcome =
     val seed = scala.util.Random.nextLong
 
-    Shrink:
-      Rand.withSeed(seed):
-        executeTest(size, body) match
-          case Rand.Recorded(Result.Success, state) =>
-            // If the state is empty, this is not a random-based test and there's no need to try it more than once.
-            // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
-            val success = state.isEmpty || count >= conf.minSuccess
+    Size(size):
+      Shrink:
+        Rand.withSeed(seed):
+          executeTest(size, body) match
+            case Rand.Recorded(Result.Success, state) =>
+              // If the state is empty, this is not a random-based test and there's no need to try it more than once.
+              // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
+              val success = state.isEmpty || count >= conf.minSuccess
 
-            if success then TestOutcome(count + 1, seed, Result.Success)
-            else loop(count + 1, size + sizeStep)
+              if success then TestOutcome(count + 1, seed, Result.Success)
+              else loop(count + 1, size + sizeStep)
 
-          case Rand.Recorded(e: Result.Failure, _) => TestOutcome(count, seed, e)
+            case Rand.Recorded(e: Result.Failure, _) => TestOutcome(count, seed, e)
 
   loop(0, conf.minSize)

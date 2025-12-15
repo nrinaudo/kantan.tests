@@ -66,12 +66,13 @@ private def runState(
     size: Int,
     body: (Rand, Params, Size, Assert) ?=> Unit
 ): Rand.Recorded[Result] =
-  Rand.replay(state):
-    Rand
-      .record(runTest(size, body))
-      .map:
-        case Params.Recorded(Assertion.Success, _)           => Result.Success
-        case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, msg, params)
+  Size(size):
+    Rand.replay(state):
+      Rand
+        .record(runTest(body))
+        .map:
+          case Params.Recorded(Assertion.Success, _)           => Result.Success
+          case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, msg, params)
 
 /** Shrinks the specified test, known to have failed with `failure` on state `state`. */
 private def shrink(
