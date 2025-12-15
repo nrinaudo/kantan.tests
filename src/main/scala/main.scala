@@ -84,17 +84,16 @@ def execute(conf: Configuration, body: (Rand, Params, Size, Assert) ?=> Unit): S
     val seed = scala.util.Random.nextLong
 
     Size(size):
-      Shrink:
-        Rand.withSeed(seed):
-          executeTest(size, body) match
-            case Rand.Recorded(Result.Success, state) =>
-              // If the state is empty, this is not a random-based test and there's no need to try it more than once.
-              // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
-              val success = state.isEmpty || count >= conf.minSuccess
+      Rand.withSeed(seed):
+        executeTest(size, body) match
+          case Rand.Recorded(Result.Success, state) =>
+            // If the state is empty, this is not a random-based test and there's no need to try it more than once.
+            // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
+            val success = state.isEmpty || count >= conf.minSuccess
 
-              if success then TestOutcome(count + 1, seed, Result.Success)
-              else loop(count + 1, size + sizeStep)
+            if success then TestOutcome(count + 1, seed, Result.Success)
+            else loop(count + 1, size + sizeStep)
 
-            case Rand.Recorded(e: Result.Failure, _) => TestOutcome(count, seed, e)
+          case Rand.Recorded(e: Result.Failure, _) => TestOutcome(count, seed, e)
 
   loop(0, conf.minSize)

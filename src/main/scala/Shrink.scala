@@ -88,7 +88,7 @@ private def shrink(
           loop(tail, failure)
 
         case Rand.Recorded(e: Result.Failure, state) =>
-          loop(Shrink.state(state), e.copy(shrinkCount = e.shrinkCount + 1))
+          loop(Shrink.state(state), e.copy(shrinkCount = failure.shrinkCount + 1))
 
     case _ => failure
 
