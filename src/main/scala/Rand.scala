@@ -48,6 +48,7 @@ object Rand:
       inline def toInts: List[Int] = state
 
     inline def apply(state: List[Int]): State = state
+    inline def apply(state: Int*): State      = state.toList
 
   /** Records every generated random number while running the specified computation.
     *
