@@ -4,9 +4,49 @@ import caps.*
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-// Functions used to run tests.
+// Test execution tools.
 //
 // ---------------------------------------------------------------------------------------------------------------------
+
+case class Configuration(minSuccess: Int, minSize: Int, maxSize: Int)
+
+/** Capability describing the ability to run a test.
+  *
+  * A test here is really only a function that, given a `Configuration`, yields some outcome.
+  *
+  * This is how we can provide a wealth of ways of running tests - for example, `testNoShrink` to skip failing test case
+  * reduction.
+  */
+trait Runner extends SharedCapability:
+  def run(name: String, body: Configuration => TestOutcome): Unit
+
+object Runner:
+  def run(name: String)(body: Configuration => TestOutcome): Runner ?->{body} Unit = handler ?=> handler.run(name, body)
+
+  /** Runs the specified test without shrinking failing test cases. */
+  def testNoShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    run(desc): conf =>
+      Shrink.noop:
+        execute(conf, body)
+
+  /** Runs the specified exactly once, ignoring configuration and using the specified parameters instead.
+    *
+    * This is mostly intended to easily replay failing test cases.
+    */
+  def test(desc: String, size: Int, seed: Long)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    run(desc): _ =>
+      Size(size):
+        Rand.withSeed(seed):
+          val result       = runOne(body)
+          val successCount = if result.isSuccess then 1 else 0
+
+          TestOutcome(successCount, seed, result)
+
+  def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    run(desc): conf =>
+      Shrink:
+        Shrink.caching(1000):
+          execute(conf, body)
 
 // - Results of a test -------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
@@ -14,6 +54,12 @@ import caps.*
 enum Result:
   case Success
   case Failure(shrinkCount: Int, size: Int, msg: String, params: Params.Values)
+
+  def isSuccess = this match
+    case Success    => true
+    case _: Failure => false
+
+  def isFailure = !isSuccess
 
 /** Description of a test's execution. */
 case class TestOutcome(successCount: Int, seed: Long, result: Result)
@@ -67,8 +113,6 @@ def runOne(body: (Rand, Params, Size, Assert) ?=> Unit): (Rand, Size) ?->{body} 
   */
 def executeOne(body: (Rand, Params, Size, Assert) ?=> Unit): (Rand, Shrink, Size) ?->{body} Result =
   executeTest(body).value
-
-case class Configuration(minSuccess: Int, minSize: Int, maxSize: Int)
 
 /** Runs the specified test until the minimum number of successes has been reached.
   *
