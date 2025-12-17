@@ -33,4 +33,6 @@ object Params:
 
     Recorded(body, Values(records.toMap))
 
-  def param[A](name: String, value: A): Params ?-> Unit = r ?=> r.param(name, value)
+  def param[A](name: String, value: A): Params ?-> A = r ?=>
+    r.param(name, value)
+    value
