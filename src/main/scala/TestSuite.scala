@@ -28,4 +28,5 @@ trait TestSuite:
       testBuilder += Test(name, body).unsafeAssumePure
 
   val run: Runner ?-> Unit = testBuilder.result.foreach: test =>
-    Runner.run(test.desc)(test.body)
+    Runner.run(test.desc):
+      test.body(Conf.get)

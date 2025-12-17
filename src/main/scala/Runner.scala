@@ -8,8 +8,6 @@ import caps.*
 //
 // ---------------------------------------------------------------------------------------------------------------------
 
-case class Configuration(minSuccess: Int, minSize: Int, maxSize: Int)
-
 /** Capability describing the ability to run a test.
   *
   * A test here is really only a function that, given a `Configuration`, yields some outcome.
@@ -21,20 +19,29 @@ trait Runner extends SharedCapability:
   def run(name: String, body: Configuration => TestOutcome): Unit
 
 object Runner:
-  def run(name: String)(body: Configuration => TestOutcome): Runner ?->{body} Unit = handler ?=> handler.run(name, body)
+  def run(name: String)(body: Conf ?=> TestOutcome): Runner ?->{body} Unit = handler ?=>
+    val concrete: Configuration => TestOutcome =
+      conf =>
+        var state = conf
+        given Conf:
+          override def get                   = state
+          override def set(c: Configuration) = state = c
+        body
+
+    handler.run(name, concrete)
 
   /** Runs the specified test without shrinking failing test cases. */
   def testNoShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-    run(desc): conf =>
+    run(desc):
       Shrink.noop:
-        execute(conf, body)
+        execute(Conf.get, body)
 
   /** Runs the specified exactly once, ignoring configuration and using the specified parameters instead.
     *
     * This is mostly intended to easily replay failing test cases.
     */
   def test(desc: String, size: Int, seed: Long)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-    run(desc): _ =>
+    run(desc):
       Size(size):
         Rand.withSeed(seed):
           val result       = runOne(body)
@@ -43,10 +50,10 @@ object Runner:
           TestOutcome(successCount, seed, result)
 
   def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-    run(desc): conf =>
+    run(desc):
       Shrink:
         Shrink.caching(1000):
-          execute(conf, body)
+          execute(Conf.get, body)
 
 // - Results of a test -------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
