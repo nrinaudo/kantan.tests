@@ -40,7 +40,7 @@ object Runner:
     *
     * This is mostly intended to easily replay failing test cases.
     */
-  def test(desc: String, size: Int, seed: Long)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+  def test(size: Int, seed: Long)(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
     run(desc):
       Size(size):
         Rand.withSeed(seed):
