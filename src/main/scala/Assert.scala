@@ -31,7 +31,10 @@ object Assert:
     try
       body
       Assertion.Success
-    catch case Error(`handler`, message) => Assertion.Failure(message)
+    catch
+      case Error(`handler`, message) => Assertion.Failure(message)
+      case e: Error                  => throw e
+      case e                         => Assertion.Failure(e.getMessage)
 
   /** Fails with the specified message, jumping back to the specified `Assert`. */
   def fail(msg: String): Assert ?-> Nothing =
