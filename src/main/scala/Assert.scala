@@ -37,7 +37,13 @@ object Assert:
   def fail(msg: String): Assert ?-> Nothing =
     handler ?=> throw Error(handler.unsafeAssumePure, msg)
 
+  def assert(b: Boolean): Assert ?-> Unit =
+    assert(b, "Assertion did not hold")
+
   /** Fails with the specified message if `b` is `false`. */
   def assert(b: Boolean, msg: String): Assert ?-> Unit =
     if b then ()
     else fail(msg)
+
+  def assertEquals[A](lhs: A, rhs: A): Assert ?-> Unit =
+    assert(lhs == rhs, s"$lhs was not equal to $rhs")
