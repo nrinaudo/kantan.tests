@@ -140,7 +140,7 @@ def execute(conf: Configuration, body: (Rand, Params, Size, Assert) ?=> Unit): S
           case Rand.Recorded(Result.Success, state) =>
             // If the state is empty, this is not a random-based test and there's no need to try it more than once.
             // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
-            val success = state.isEmpty || count >= conf.minSuccess
+            val success = state.isEmpty || count >= conf.minSuccess - 1
 
             if success then TestOutcome(count + 1, seed, Result.Success)
             else loop(count + 1, size + sizeStep)
