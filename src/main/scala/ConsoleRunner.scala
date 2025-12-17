@@ -19,12 +19,12 @@ class ConsoleRunner(conf: Configuration) extends Runner:
       case TestOutcome(count, seed, Result.Failure(shrinkCount, size, msg, params)) =>
         print(Console.RED)
         println(s"* $name ($count successful attempt(s))")
-        println(s"  Seed:  $seed")
-        println(s"  Size:  $size")
         println(s"  Error: $msg")
         if params.values.nonEmpty then
           println(s"  Parameters (shrunk $shrinkCount time(s)):")
           params.values.foreach:
             case (name, value) => println(s"    - $name = $value")
+        println(s"  Seed:  $seed")
+        println(s"  Size:  $size")
 
     print(Console.RESET)
