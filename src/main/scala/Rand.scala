@@ -117,15 +117,20 @@ object Rand:
     if index == 0 then head
     else tail(index - 1)
 
-  def list[A](length: Int, content: Rand ?=> A): Rand ?->{content} List [A] =
+  val size: (Size, Rand) ?-> Int = int(Size.size)
+
+  def listOf[A](length: Int, content: Rand ?=> A): Rand ?->{content} List [A] =
     (0 until length)
       .foldLeft(List.newBuilder[A]): (out, _) =>
         out += content
       .result
 
+  def list[A](content: Rand ?=> A): (Size, Rand) ?->{content} List [A] =
+    listOf(size, content)
+
   val identifier: (Size, Rand) ?-> String =
     // Always generate the things with the most influence earlier, as it helps with shrinking.
-    val tail = list(int(Size.size - 1), oneOf(lowerAscii, upperAscii, digit, '_'))
+    val tail = listOf(int(Size.size - 1), oneOf(lowerAscii, upperAscii, digit, '_'))
     val head = oneOf(lowerAscii, upperAscii, '_')
 
     (head :: tail).mkString
