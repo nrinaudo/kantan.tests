@@ -19,6 +19,14 @@ trait Runner extends SharedCapability:
   def run(name: String, body: Configuration => TestOutcome): Unit
 
 object Runner:
+  /** Yields a "skipped" result with the specified message.
+   *
+   * End-users should probably call `ignore` instead.
+   */
+  def skip(name: String)(msg: String): Runner ?-> Unit =
+    run(name):
+      TestOutcome(0, Result.Skipped(msg))
+
   def run(name: String)(body: Conf ?=> TestOutcome): Runner ?->{body} Unit = handler ?=>
     val concrete: Configuration => TestOutcome =
       conf =>
@@ -38,16 +46,27 @@ object Runner:
 
   /** Runs the specified exactly once, ignoring configuration and using the specified parameters instead.
     *
-    * This is mostly intended to easily replay failing test cases.
+    * This is intended to easily replay failing test cases.
     */
-  def test(size: Int, seed: Long)(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+  def replay(desc: String)(state: ReplayState)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
     run(desc):
-      Size(size):
-        Rand.withSeed(seed):
-          val result       = runOne(body)
-          val successCount = if result.isSuccess then 1 else 0
+      Size(state.size):
+        Rand.replay(state.state):
+          runTest(body) match
+            case Params.Recorded(Assertion.Success, _)           =>
+              TestOutcome(1, Result.Success)
 
-          TestOutcome(successCount, seed, result)
+            case Params.Recorded(Assertion.Failure(msg), params) =>
+              TestOutcome(0, Result.Failure(0, msg, state, params))
+
+  /** Runs the specified exactly once, ignoring configuration and using the state denoted by the specified string.
+    *
+    * Valid states are given as the output of failing test cases.
+    */
+  def replay(desc: String)(state: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    ReplayState.decode(state) match
+      case None        => skip(desc)("Failed to decode replay state")
+      case Some(state) => replay(desc)(state)(body)
 
   def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
     run(desc):
@@ -56,15 +75,14 @@ object Runner:
           execute(Conf.get, body)
 
   def ignore(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-    run(desc):
-      TestOutcome(0, System.currentTimeMillis, Result.Skipped("Test mark as ignored"))
+    skip(desc)("Test marked as ignored")
 
 // - Results of a test -------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
 /** Status of a test, either a success or a failure. */
 enum Result:
   case Success
-  case Failure(shrinkCount: Int, size: Int, msg: String, params: Params.Values)
+  case Failure(shrinkCount: Int, msg: String, replay: ReplayState, params: Params.Values)
   case Skipped(msg: String)
 
   def isSuccess = this match
@@ -74,7 +92,7 @@ enum Result:
   def isFailure = !isSuccess
 
 /** Description of a test's execution. */
-case class TestOutcome(successCount: Int, seed: Long, result: Result)
+case class TestOutcome(successCount: Int, result: Result)
 
 // - Internal test running ---------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
@@ -102,30 +120,10 @@ private def executeTest(
       Rand.Recorded(Result.Success, state)
 
     case Rand.Recorded(Params.Recorded(Assertion.Failure(msg), params), state) =>
-      Rand.Recorded(shrink(body, Result.Failure(0, size, msg, params), state, size), state)
+      Rand.Recorded(shrink(body, Result.Failure(0, msg, ReplayState(state, size), params)), state)
 
 // - Test running ------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
-/** Runs the specified test, without attempting to shrink failing test cases.
-  *
-  * This is intended to replay known failing test cases, perhaps by using a known random seed or a recorded failing
-  * state.
-  */
-def runOne(body: (Rand, Params, Size, Assert) ?=> Unit): (Rand, Size) ?->{body} Result =
-  val size = Size.size
-
-  runTest(body) match
-    case Params.Recorded(Assertion.Success, _)           => Result.Success
-    case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, size, msg, params)
-
-/** Runs the specified test, and attempts to shrink failing test cases.
-  *
-  * This is intended to replay known failing test cases, perhaps by using a known random seed or a recorded failing
-  * state.
-  */
-def executeOne(body: (Rand, Params, Size, Assert) ?=> Unit): (Rand, Shrink, Size) ?->{body} Result =
-  executeTest(body).value
-
 /** Runs the specified test until the minimum number of successes has been reached.
   *
   * This will start by testing on smaller test cases (by using the minimum `size` value), and grow them until they reac
@@ -147,9 +145,9 @@ def execute(conf: Configuration, body: (Rand, Params, Size, Assert) ?=> Unit): S
             // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
             val success = state.isEmpty || count >= conf.minSuccess - 1
 
-            if success then TestOutcome(count + 1, seed, Result.Success)
+            if success then TestOutcome(count + 1, Result.Success)
             else loop(count + 1, size + sizeStep)
 
-          case Rand.Recorded(other, _) => TestOutcome(count, seed, other)
+          case Rand.Recorded(other, _) => TestOutcome(count, other)
 
   loop(0, conf.minSize)

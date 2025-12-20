@@ -89,18 +89,16 @@ private def runState(
         .record(runTest(body))
         .map:
           case Params.Recorded(Assertion.Success, _)           => Result.Success
-          case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, size, msg, params)
+          case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, msg, ReplayState(state, size), params)
 
 /** Shrinks the specified test, known to have failed with `failure` on state `state`. */
 private def shrink(
     body: (Rand, Params, Size, Assert) ?=> Unit,
-    failure: Result.Failure,
-    state: Rand.State,
-    size: Int
+    failure: Result.Failure
 ): Shrink ?=> Result.Failure =
   def loop(states: LazyList[Rand.State], failure: Result.Failure): Result.Failure = states match
     case head #:: tail =>
-      runState(head, size, body) match
+      runState(head, failure.replay.size, body) match
         case Rand.Recorded(Result.Success, _) =>
           loop(tail, failure)
 
@@ -109,4 +107,4 @@ private def shrink(
 
     case _ => failure
 
-  loop(Shrink.state(state), failure)
+  loop(Shrink.state(failure.replay.state), failure)

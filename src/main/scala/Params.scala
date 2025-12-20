@@ -21,6 +21,8 @@ trait Params extends SharedCapability:
 
 object Params:
   case class Values(values: Map[String, String])
+  object Values:
+    val empty: Values = Values(Map.empty)
 
   case class Recorded[A](value: A, params: Values)
 
