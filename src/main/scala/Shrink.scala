@@ -82,7 +82,7 @@ private def runState(
     state: Rand.State,
     size: Int,
     body: (Rand, Params, Size, Assert) ?=> Unit
-): Rand.Recorded[Result] =
+): Rand.Recorded[Result.Success.type | Result.Failure] =
   Size(size):
     Rand.replay(state):
       Rand

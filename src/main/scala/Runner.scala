@@ -55,16 +55,21 @@ object Runner:
         Shrink.caching(1000):
           execute(Conf.get, body)
 
+  def ignore(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    run(desc):
+      TestOutcome(0, System.currentTimeMillis, Result.Skipped("Test mark as ignored"))
+
 // - Results of a test -------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
 /** Status of a test, either a success or a failure. */
 enum Result:
   case Success
   case Failure(shrinkCount: Int, size: Int, msg: String, params: Params.Values)
+  case Skipped(msg: String)
 
   def isSuccess = this match
     case Success    => true
-    case _: Failure => false
+    case _ => false
 
   def isFailure = !isSuccess
 
@@ -145,6 +150,6 @@ def execute(conf: Configuration, body: (Rand, Params, Size, Assert) ?=> Unit): S
             if success then TestOutcome(count + 1, seed, Result.Success)
             else loop(count + 1, size + sizeStep)
 
-          case Rand.Recorded(e: Result.Failure, _) => TestOutcome(count, seed, e)
+          case Rand.Recorded(other, _) => TestOutcome(count, seed, other)
 
   loop(0, conf.minSize)

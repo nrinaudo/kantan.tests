@@ -12,6 +12,10 @@ package kantan.tests
 class ConsoleRunner(conf: Configuration) extends Runner:
   def run(name: String, body: Configuration => TestOutcome) =
     body(conf) match
+      case TestOutcome(count, seed, Result.Skipped(msg)) =>
+        print(Console.YELLOW)
+        println(s"* [SKIPPED] $name ($count successful attempt(s))")
+
       case TestOutcome(count, seed, Result.Success) =>
         print(Console.GREEN)
         println(s"* $name ($count successful attempt(s))")
