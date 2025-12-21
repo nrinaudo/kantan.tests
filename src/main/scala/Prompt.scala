@@ -1,0 +1,99 @@
+package kantan.tests
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+// Test prompts.
+//
+// A test prompt is a way of declaring a test, which usually looks something like:
+// test("Test the foobar"):
+//   assertEquals("foo", "bar")
+//
+// Default ones are found in the cleverly named `default` namespace, but brave users can write their own - by, for
+// example, using the ones found in `core` as building blocks.
+//
+// ---------------------------------------------------------------------------------------------------------------------
+
+object Prompt:
+  /** Runs a single test, without attempting to shrink failing test cases.
+    *
+    * This is intended for internal use only.
+    */
+  private[tests] def runTest(
+      body: (Rand, Params, Size, Assert) ?=> Unit
+  ): (Rand, Size) ?->{body} Params.Recorded [Assertion] =
+    Params:
+      Assert:
+        body
+
+  /** Core prompts, allowing callers to provide their own handlers.
+    *
+    * These really aren't meant to be called by end-users, but rather used as basic building blocks for more directly
+    * usable prompts.
+    */
+  object core:
+    /** Runs the specified test, shrinking failing test cases if needed. */
+    def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner, Shrink) ?->{body} Unit =
+      Runner.run(desc): conf =>
+        Plan.execute(conf, body) match
+          case TestOutcome(count, failure: Result.Failure) => TestOutcome(count, shrink(body, failure))
+          case other                                       => other
+
+    /** Runs the specified test, without shrinking failing test cases. */
+    def testNoShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner) ?->{body} Unit =
+      Runner.run(desc): conf =>
+        Plan.execute(conf, body)
+
+  /** Provides default test prompts, the one users should be using unless they have a pretty good idea what they're
+    * doing.
+    */
+  object default:
+    /** Runs the specified test, shrinking failing test cases if found. */
+    def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+      Plan.growing:
+        Shrink:
+          Shrink.caching(1000):
+            core.test(desc)(body)
+
+    /** Runs the specified test without shrinking failing test cases.
+      *
+      * This might be desirable for tests that are particularly expensive to run on large test cases, for example.
+      */
+    def testNoShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+      Plan.growing:
+        core.testNoShrink(desc)(body)
+
+    /** Runs the specified test exactly once, ignoring configuration and using the specified parameters instead.
+      *
+      * This is intended to easily replay failing test cases.
+      */
+    def replay(desc: String)(state: ReplayState)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+      Runner.run(desc): _ =>
+        Size(state.size):
+          Rand.replay(state.state):
+            runTest(body) match
+              case Params.Recorded(Assertion.Success, _) =>
+                TestOutcome(1, Result.Success)
+
+              case Params.Recorded(Assertion.Failure(msg), params) =>
+                TestOutcome(0, Result.Failure(0, msg, state, params))
+
+    /** Runs the specified test exactly once, ignoring configuration and using the state denoted by the specified
+      * string.
+      *
+      * The `state` parameter can be obtained by observing a failing test report, it will include something like:
+      * {{{
+      *  Replay: H4sIAAAAAAAA_2JgAANGEAEAAAD__w==
+      * }}}
+      */
+    def replay(desc: String)(state: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+      ReplayState.decode(state) match
+        case None        => Runner.skip(desc)("Failed to decode replay state")
+        case Some(state) => replay(desc)(state)(body)
+
+    /** Ignores the specified test.
+      *
+      * This is useful for tests that are currently broken, but which you don't want to delete in the unlikely hope that
+      * someone will eventually get around to fixing it. Oh, sweet summer child...
+      */
+    def ignore(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+      Runner.skip(desc)("Test marked as ignored")

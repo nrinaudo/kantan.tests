@@ -1,6 +1,7 @@
 package kantan.tests
 
 import caps.*
+import Prompt.*
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
@@ -27,14 +28,13 @@ enum Result:
   case Skipped(msg: String)
 
   def isSuccess = this match
-    case Success    => true
-    case _ => false
+    case Success => true
+    case _       => false
 
   def isFailure = !isSuccess
 
 /** Description of a test's execution. */
 case class TestOutcome(successCount: Int, result: Result)
-
 
 // - Test plan ---------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------

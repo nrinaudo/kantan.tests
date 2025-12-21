@@ -1,6 +1,6 @@
 package kantan.tests
 
-import Runner.*
+import Prompt.default.*
 import Assert.*
 
 /** Shows how example-based tests can be misleading, and how generative ones catch incorrect assumptions.

@@ -1,6 +1,6 @@
 package kantan.tests
 
-import Runner.*
+import Prompt.default.*
 import Assert.*
 
 object ScalaCheck extends TestSuite:

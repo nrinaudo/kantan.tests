@@ -1,6 +1,6 @@
 package kantan.tests
 
-import Runner.*
+import Prompt.default.*
 import Assert.*
 
 /** Shows how to rewrite the Hedgehog examples using kantan.tests. */

@@ -1,5 +1,7 @@
 package kantan.tests
 
+import Prompt.*
+
 // ---------------------------------------------------------------------------------------------------------------------
 //
 // Test case reduction.
@@ -89,7 +91,8 @@ private def runState(
         .record(runTest(body))
         .map:
           case Params.Recorded(Assertion.Success, _)           => Result.Success
-          case Params.Recorded(Assertion.Failure(msg), params) => Result.Failure(0, msg, ReplayState(state, size), params)
+          case Params.Recorded(Assertion.Failure(msg), params) =>
+            Result.Failure(0, msg, ReplayState(state, size), params)
 
 /** Shrinks the specified test, known to have failed with `failure` on state `state`. */
 private def shrink(
