@@ -9,8 +9,8 @@ package kantan.tests
 // ---------------------------------------------------------------------------------------------------------------------
 
 /** Simple runner that reports tests to the standard output. */
-class ConsoleRunner(conf: Configuration) extends Runner:
-  def run(name: String, body: Configuration => TestOutcome) =
+class ConsoleRunner(conf: Conf) extends Runner:
+  def run(name: String, body: Conf => TestOutcome) =
     body(conf) match
       case TestOutcome(count, Result.Skipped(msg)) =>
         print(Console.YELLOW)

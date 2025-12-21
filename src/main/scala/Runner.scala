@@ -8,15 +8,17 @@ import caps.*
 //
 // ---------------------------------------------------------------------------------------------------------------------
 
+case class Conf(minSuccess: Int, minSize: Int, maxSize: Int)
+
 /** Capability describing the ability to run a test.
   *
-  * A test here is really only a function that, given a `Configuration`, yields some outcome.
+  * A test here is really only a function that, given a `Conf`, yields some outcome.
   *
   * This is how we can provide a wealth of ways of running tests - for example, `testNoShrink` to skip failing test case
   * reduction.
   */
 trait Runner extends SharedCapability:
-  def run(name: String, body: Configuration => TestOutcome): Unit
+  def run(name: String, body: Conf => TestOutcome): Unit
 
 object Runner:
   /** Yields a "skipped" result with the specified message.
@@ -24,32 +26,24 @@ object Runner:
    * End-users should probably call `ignore` instead.
    */
   def skip(name: String)(msg: String): Runner ?-> Unit =
-    run(name):
+    run(name): _ =>
       TestOutcome(0, Result.Skipped(msg))
 
-  def run(name: String)(body: Conf ?=> TestOutcome): Runner ?->{body} Unit = handler ?=>
-    val concrete: Configuration => TestOutcome =
-      conf =>
-        var state = conf
-        given Conf:
-          override def get                   = state
-          override def set(c: Configuration) = state = c
-        body
-
-    handler.run(name, concrete)
+  def run(name: String)(body: Conf => TestOutcome): Runner ?->{body} Unit = handler ?=>
+    handler.run(name, body)
 
   /** Runs the specified test without shrinking failing test cases. */
   def testNoShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-    run(desc):
+    run(desc): conf =>
       Shrink.noop:
-        execute(Conf.get, body)
+        execute(conf, body)
 
   /** Runs the specified exactly once, ignoring configuration and using the specified parameters instead.
     *
     * This is intended to easily replay failing test cases.
     */
   def replay(desc: String)(state: ReplayState)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-    run(desc):
+    run(desc): _ =>
       Size(state.size):
         Rand.replay(state.state):
           runTest(body) match
@@ -69,10 +63,10 @@ object Runner:
       case Some(state) => replay(desc)(state)(body)
 
   def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-    run(desc):
+    run(desc): conf =>
       Shrink:
         Shrink.caching(1000):
-          execute(Conf.get, body)
+          execute(conf, body)
 
   def ignore(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
     skip(desc)("Test marked as ignored")
@@ -131,7 +125,7 @@ private def executeTest(
   *
   * Failed tests will be reduced in an attempt to provide a minimal reproduction scenario.
   */
-def execute(conf: Configuration, body: (Rand, Params, Size, Assert) ?=> Unit): Shrink ?->{body} TestOutcome =
+def execute(conf: Conf, body: (Rand, Params, Size, Assert) ?=> Unit): Shrink ?->{body} TestOutcome =
   val sizeStep = (conf.maxSize - conf.minSize) / conf.minSuccess
 
   def loop(count: Int, size: Int): TestOutcome =
