@@ -58,8 +58,8 @@ object Prompt:
     /** Runs the specified test, shrinking failing test cases if found. */
     def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
       Plan.growing:
-        Shrink:
-          Shrink.caching(1000):
+        Shrink.Naive:
+          Shrink.Naive.caching(1000):
             core.test(desc)(body)
 
     /** Runs the specified test without shrinking failing test cases.

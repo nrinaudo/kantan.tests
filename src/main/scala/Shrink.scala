@@ -6,58 +6,118 @@ import Prompt.*
 //
 // Test case reduction.
 //
-// The general idea is very simple: a test case is the result of pulling a series of random numbers. In order to shrink
-// the test case, then, we'll shrink the series of random numbers, assuming that lower numbers lead to smaller values.
-// This is very much inspired (although I only realised that after the fact) by David McIver's work on Hypothesis.
-//
 // ---------------------------------------------------------------------------------------------------------------------
 
-case class Shrunk(result: Plan.Result.Failure, shrinkCount: Int)
-
+/** Describes the ability to reduce a failing test case to a smaller one.
+  *
+  * Note that there is no guarantee that the shrunk test case will be the smallest possible, nor that one will be found
+  * at all. This is merely a best attempt.
+  *
+  * The API for this is designed with experimentation in mind, allowing "easy" implementation of wacky ideas. At the
+  * time of writing, there really is only one useful implementation: `Shrink.Naive`.
+  */
 trait Shrink:
-  def shrink(state: Rand.State): LazyList[Rand.State]
+  def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, result: Plan.Result.Failure): Shrink.Result
 
 object Shrink:
-  // - Default shrinker ------------------------------------------------------------------------------------------------
+  // - Shrink result ---------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
-  /** Runs the specified computation using the default shrinker.
+  /** Contains the smallest failing test case we could find, with the number of times it was shrunk. */
+  case class Result(result: Plan.Result.Failure, shrinkCount: Int)
+
+  // - Basic operations ------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------------------
+  /** Shrinks the specified test failure. */
+  def shrink(
+      test: (Rand, Params, Size, Assert) ?=> Unit,
+      result: Plan.Result.Failure
+  ): Shrink ?->{test} Shrink.Result =
+    handler ?=> handler.shrink(test, result)
+
+  // - Naive shrinking -------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------------------
+  /** Shrinkers based on a naive exploration of the test space.
     *
-    * This shrinks state by first shrinking the head towards 0 by halves, then shrinking the tail.
+    * Naive shrinkers take a state and generate a list of interesting states to look at from it. They then explore all
+    * of them until they find a failing one, and start the process over from that one.
     */
-  def apply[A](body: Shrink ?=> A): A =
-    def halves(i: Int): LazyList[Int] =
-      if i == 0 then LazyList.empty
-      else
-        val head = i / 2
-        head #:: halves(head)
+  trait Naive extends Shrink:
+    def shrink(state: Rand.State): LazyList[Rand.State]
 
-    def loop(state: List[Int]): LazyList[List[Int]] =
-      state match
-        case head :: tail =>
-          halves(head).map(_ :: tail)
-            #::: loop(tail).map(head :: _)
-        case Nil => LazyList.empty
+    // The concept here is very simple: the state shrinker generates all interesting states to look at, ordered from
+    // most to least interesting. We'll then explore them, in that order, until we either run out of states, or find
+    // a new failing one. We'll then attempt to shrink that one.
+    override def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, result: Plan.Result.Failure) =
+      def loop(states: LazyList[Rand.State], shrunk: Shrink.Result): Shrink.Result = states match
+        case head #:: tail =>
+          Naive.runState(head, shrunk.result.state.size, test) match
+            case Rand.Recorded(Plan.Result.Success, _) =>
+              loop(tail, shrunk)
 
-    given Shrink = state => loop(state.toInts).map(Rand.State.apply)
+            case Rand.Recorded(e: Plan.Result.Failure, state) =>
+              loop(shrink(state), Shrink.Result(e, shrunk.shrinkCount + 1))
 
-    body
+        case _ => shrunk
 
-  // - Caching shrinker ------------------------------------------------------------------------------------------------
-  // -------------------------------------------------------------------------------------------------------------------
-  /** Handler that caches previously seen test cases and avoids re-running them. */
-  def caching[A](maxSize: Int)(body: Shrink ?=> A): Shrink ?->{body} A = handler ?=>
-    val cache = new java.util.LinkedHashMap[Rand.State, Unit](16, 0.75, true):
-      override def removeEldestEntry(eldest: java.util.Map.Entry[Rand.State, Unit]) = size > maxSize
+      loop(shrink(result.state.state), Shrink.Result(result, 0))
 
-    def isNew(state: Rand.State) =
-      if cache.containsKey(state) then false
-      else
-        cache.put(state, ())
-        true
+  object Naive:
+    def shrink(state: Rand.State): Naive ?-> LazyList[Rand.State] = handler ?=> handler.shrink(state)
 
-    given Shrink = state => handler.shrink(state).filter(isNew)
 
-    body
+    // - Helpers ---------------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------------------------------------
+    /** Runs the specified test on the specified state.
+      *
+      * This allows us to try shrunk states and see how they work out.
+      */
+    def runState(
+        state: Rand.State,
+        size: Int,
+        test: (Rand, Params, Size, Assert) ?=> Unit
+    ): Rand.Recorded[Plan.Result] =
+      Size(size):
+        Rand.replay(state):
+          Rand
+            .record(runTest(test))
+            .map:
+              case Params.Recorded(Assertion.Success, _)           => Plan.Result.Success
+              case Params.Recorded(Assertion.Failure(msg), params) =>
+                Plan.Result.Failure(msg, ReplayState(state, size), params)
+
+    /** Adds an LRU-cache to an existing naive shrinker, to avoid revisiting known states. */
+    def caching[A](maxSize: Int)(body: Naive ?=> A): Naive ?->{body} A = handler ?=>
+      val cache = new java.util.LinkedHashMap[Rand.State, Unit](16, 0.75, true):
+        override def removeEldestEntry(eldest: java.util.Map.Entry[Rand.State, Unit]) = size > maxSize
+
+      def isNew(state: Rand.State) =
+        if cache.containsKey(state) then false
+        else
+          cache.put(state, ())
+          true
+
+      given Naive = state => shrink(state).filter(isNew)
+
+      body
+
+    /** Runs the specified computation using a naive shrinker. */
+    def apply[A](body: Naive ?=> A): A =
+      def halves(i: Int): LazyList[Int] =
+        if i == 0 then LazyList.empty
+        else
+          val head = i / 2
+          head #:: halves(head)
+
+      def loop(state: List[Int]): LazyList[List[Int]] =
+        state match
+          case head :: tail =>
+            halves(head).map(_ :: tail)
+              #::: loop(tail).map(head :: _)
+          case Nil => LazyList.empty
+
+      given Naive = state => loop(state.toInts).map(Rand.State.apply)
+
+      body
 
   // - Noop shrinker ---------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
@@ -67,49 +127,6 @@ object Shrink:
     * much noise.
     */
   def noop[A](body: Shrink ?=> A): A =
-    given Shrink = _ => LazyList.empty
+    given Shrink = (_, result) => Shrink.Result(result, 0)
 
     body
-
-  // - Basic operations ------------------------------------------------------------------------------------------------
-  // -------------------------------------------------------------------------------------------------------------------
-  def state(s: Rand.State): Shrink ?-> LazyList[Rand.State] =
-    handler ?=> handler.shrink(s)
-
-  // - Actual shrinking ------------------------------------------------------------------------------------------------
-  // -------------------------------------------------------------------------------------------------------------------
-  /** Reruns the specified test on the specified state.
-    *
-    * This allows us to try shrunk states and see how they work out.
-    */
-  private def runState(
-      state: Rand.State,
-      size: Int,
-      body: (Rand, Params, Size, Assert) ?=> Unit
-  ): Rand.Recorded[Plan.Result] =
-    Size(size):
-      Rand.replay(state):
-        Rand
-          .record(runTest(body))
-          .map:
-            case Params.Recorded(Assertion.Success, _)           => Plan.Result.Success
-            case Params.Recorded(Assertion.Failure(msg), params) =>
-              Plan.Result.Failure(msg, ReplayState(state, size), params)
-
-  /** Shrinks the specified test, known to have failed with `failure` on state `state`. */
-  def shrink(
-      body: (Rand, Params, Size, Assert) ?=> Unit,
-      failure: Plan.Result.Failure
-  ): Shrink ?->{body} Shrunk =
-    def loop(states: LazyList[Rand.State], failure: Shrunk): Shrunk = states match
-      case head #:: tail =>
-        runState(head, failure.result.state.size, body) match
-          case Rand.Recorded(Plan.Result.Success, _) =>
-            loop(tail, failure)
-
-          case Rand.Recorded(e: Plan.Result.Failure, state) =>
-            loop(Shrink.state(state), Shrunk(e, failure.shrinkCount + 1))
-
-      case _ => failure
-
-    loop(Shrink.state(failure.state.state), Shrunk(failure, 0))
