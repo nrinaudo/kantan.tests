@@ -42,5 +42,5 @@ object Hedgehog extends TestSuite:
 
     Item(n, p)
 
-  def order(gen: Rand ?=> Item): Rand ?->{gen} Order =
-    Order(Rand.listOf(Rand.int(50), gen))
+  def order(gen: Rand ?=> Item): (Size, Rand) ?->{gen} Order =
+    Order(Rand.list(gen))
