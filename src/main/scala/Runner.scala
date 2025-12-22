@@ -8,8 +8,6 @@ import caps.*
 //
 // ---------------------------------------------------------------------------------------------------------------------
 
-case class Conf(minSuccess: Int, minSize: Int, maxSize: Int)
-
 /** Capability describing the ability to run a test.
   *
   * A test here is really only a function that, given a `Conf`, yields some outcome.
