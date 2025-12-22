@@ -19,11 +19,11 @@ object Prompt:
     * This is intended for internal use only.
     */
   private[tests] def runTest(
-      body: (Rand, Params, Size, Assert) ?=> Unit
-  ): (Rand, Size) ?->{body} Params.Recorded [Assertion] =
+      test: (Rand, Params, Size, Assert) ?=> Unit
+  ): (Rand, Size) ?->{test} Params.Recorded [Assertion] =
     Params:
       Assert:
-        body
+        test
 
   /** Core prompts, allowing callers to provide their own handlers.
     *
@@ -33,13 +33,13 @@ object Prompt:
   object core:
 
     /** Runs the specified test, shrinking failing test cases if needed. */
-    def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner, Shrink) ?->{body} Unit =
+    def test(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner, Shrink) ?->{test} Unit =
       Runner.run(desc): conf =>
-        val outcome = Plan.execute(conf, body)
+        val outcome = Plan.execute(conf, test)
 
         val result = outcome.result match
           case failure: Plan.Result.Failure =>
-            val shrunk = Shrink.shrink(body, failure)
+            val shrunk = Shrink.shrink(test, failure)
             Runner.Result.Failure(shrunk.result.msg, shrunk.shrinkCount, shrunk.result.state, shrunk.result.params)
 
           case other => Runner.Result.Success
@@ -47,38 +47,38 @@ object Prompt:
         Runner.Outcome(outcome.successCount, result)
 
     /** Runs the specified test, without shrinking failing test cases. */
-    def testNoShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner) ?->{body} Unit =
+    def testNoShrink(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner) ?->{test} Unit =
       Shrink.noop:
-        test(desc)(body)
+        core.test(desc)(test)
 
   /** Provides default test prompts, the one users should be using unless they have a pretty good idea what they're
     * doing.
     */
   object default:
     /** Runs the specified test, shrinking failing test cases if found. */
-    def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    def test(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{test} Unit =
       Plan.growing:
         Shrink.Naive:
           Shrink.Naive.caching(1000):
-            core.test(desc)(body)
+            core.test(desc)(test)
 
     /** Runs the specified test without shrinking failing test cases.
       *
       * This might be desirable for tests that are particularly expensive to run on large test cases, for example.
       */
-    def testNoShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    def testNoShrink(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{test} Unit =
       Plan.growing:
-        core.testNoShrink(desc)(body)
+        core.testNoShrink(desc)(test)
 
     /** Runs the specified test exactly once, ignoring configuration and using the specified parameters instead.
       *
       * This is intended to easily replay failing test cases.
       */
-    def replay(desc: String)(state: ReplayState)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    def replay(desc: String)(state: ReplayState)(test: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{test} Unit =
       Runner.run(desc): _ =>
         Size(state.size):
           Rand.replay(state.state):
-            runTest(body) match
+            runTest(test) match
               case Params.Recorded(Assertion.Success, _) =>
                 Runner.Outcome(1, Runner.Result.Success)
 
@@ -93,15 +93,15 @@ object Prompt:
       *  Replay: H4sIAAAAAAAA_2JgAANGEAEAAAD__w==
       * }}}
       */
-    def replay(desc: String)(state: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    def replay(desc: String)(state: String)(test: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{test} Unit =
       ReplayState.decode(state) match
         case None        => Runner.skip(desc)("Failed to decode replay state")
-        case Some(state) => replay(desc)(state)(body)
+        case Some(state) => replay(desc)(state)(test)
 
     /** Ignores the specified test.
       *
       * This is useful for tests that are currently broken, but which you don't want to delete in the unlikely hope that
       * someone will eventually get around to fixing it. Oh, sweet summer child...
       */
-    def ignore(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
+    def ignore(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): Runner ?-> Unit =
       Runner.skip(desc)("Test marked as ignored")

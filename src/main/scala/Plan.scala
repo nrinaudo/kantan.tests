@@ -54,17 +54,17 @@ object Plan:
   def growing[A](body: Plan ?=> A): A =
     given Plan:
       // Provides all handlers for running a single test.
-      def run(size: Int, body: (Rand, Params, Size, Assert) ?=> Unit) =
+      def run(size: Int, test: (Rand, Params, Size, Assert) ?=> Unit) =
         Size(size):
           Rand:
             Rand.record:
-              runTest(body)
+              runTest(test)
 
-      def execute(conf: Conf, body: (Rand, Params, Size, Assert) ?=> Unit): Outcome =
+      def execute(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit): Outcome =
         val sizeStep = (conf.maxSize - conf.minSize) / conf.minSuccess
 
         def loop(count: Int, size: Int): Outcome =
-          run(size, body) match
+          run(size, test) match
             case Rand.Recorded(Params.Recorded(Assertion.Success, _), state) =>
               // If the state is empty, this is not a random-based test and there's no need to try it more than once.
               // If it *is* a random-based test, but we've ran it enough times, then the test is successful.

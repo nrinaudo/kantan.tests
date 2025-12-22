@@ -64,7 +64,6 @@ object Shrink:
   object Naive:
     def shrink(state: Rand.State): Naive ?-> LazyList[Rand.State] = handler ?=> handler.shrink(state)
 
-
     // - Helpers ---------------------------------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------------------------------------------
     /** Runs the specified test on the specified state.

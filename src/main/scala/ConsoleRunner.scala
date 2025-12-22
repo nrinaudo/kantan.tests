@@ -12,8 +12,8 @@ import Runner.*
 
 /** Simple runner that reports tests to the standard output. */
 class ConsoleRunner(conf: Conf) extends Runner:
-  def run(name: String, body: Conf => Runner.Outcome) =
-    body(conf) match
+  def run(name: String, test: Conf => Runner.Outcome) =
+    test(conf) match
       case Outcome(count, Result.Skipped(msg)) =>
         print(Console.YELLOW)
         println(s"* [SKIPPED] $name ($count successful attempt(s))")

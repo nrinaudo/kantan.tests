@@ -16,7 +16,7 @@ import caps.*
   * reduction.
   */
 trait Runner extends SharedCapability:
-  def run(name: String, body: Conf => Runner.Outcome): Unit
+  def run(name: String, test: Conf => Runner.Outcome): Unit
 
 object Runner:
   // - Test results ----------------------------------------------------------------------------------------------------
@@ -46,5 +46,5 @@ object Runner:
     run(name): _ =>
       Outcome(0, Result.Skipped(msg))
 
-  def run(name: String)(body: Conf => Outcome): Runner ?->{body} Unit =
-    handler ?=> handler.run(name, body)
+  def run(name: String)(test: Conf => Outcome): Runner ?->{test} Unit =
+    handler ?=> handler.run(name, test)
