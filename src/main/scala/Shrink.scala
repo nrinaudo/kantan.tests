@@ -12,6 +12,8 @@ import Prompt.*
 //
 // ---------------------------------------------------------------------------------------------------------------------
 
+case class Shrunk(result: Plan.Result.Failure, shrinkCount: Int)
+
 trait Shrink:
   def shrink(state: Rand.State): LazyList[Rand.State]
 
@@ -74,40 +76,40 @@ object Shrink:
   def state(s: Rand.State): Shrink ?-> LazyList[Rand.State] =
     handler ?=> handler.shrink(s)
 
-// - Actual shrinking --------------------------------------------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------
-/** Reruns the specified test on the specified state.
-  *
-  * This allows us to try shrunk states and see how they work out.
-  */
-private def runState(
-    state: Rand.State,
-    size: Int,
-    body: (Rand, Params, Size, Assert) ?=> Unit
-): Rand.Recorded[Result.Success.type | Result.Failure] =
-  Size(size):
-    Rand.replay(state):
-      Rand
-        .record(runTest(body))
-        .map:
-          case Params.Recorded(Assertion.Success, _)           => Result.Success
-          case Params.Recorded(Assertion.Failure(msg), params) =>
-            Result.Failure(0, msg, ReplayState(state, size), params)
+  // - Actual shrinking ------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------------------
+  /** Reruns the specified test on the specified state.
+    *
+    * This allows us to try shrunk states and see how they work out.
+    */
+  private def runState(
+      state: Rand.State,
+      size: Int,
+      body: (Rand, Params, Size, Assert) ?=> Unit
+  ): Rand.Recorded[Plan.Result] =
+    Size(size):
+      Rand.replay(state):
+        Rand
+          .record(runTest(body))
+          .map:
+            case Params.Recorded(Assertion.Success, _)           => Plan.Result.Success
+            case Params.Recorded(Assertion.Failure(msg), params) =>
+              Plan.Result.Failure(msg, ReplayState(state, size), params)
 
-/** Shrinks the specified test, known to have failed with `failure` on state `state`. */
-private def shrink(
-    body: (Rand, Params, Size, Assert) ?=> Unit,
-    failure: Result.Failure
-): Shrink ?=> Result.Failure =
-  def loop(states: LazyList[Rand.State], failure: Result.Failure): Result.Failure = states match
-    case head #:: tail =>
-      runState(head, failure.replay.size, body) match
-        case Rand.Recorded(Result.Success, _) =>
-          loop(tail, failure)
+  /** Shrinks the specified test, known to have failed with `failure` on state `state`. */
+  def shrink(
+      body: (Rand, Params, Size, Assert) ?=> Unit,
+      failure: Plan.Result.Failure
+  ): Shrink ?->{body} Shrunk =
+    def loop(states: LazyList[Rand.State], failure: Shrunk): Shrunk = states match
+      case head #:: tail =>
+        runState(head, failure.result.state.size, body) match
+          case Rand.Recorded(Plan.Result.Success, _) =>
+            loop(tail, failure)
 
-        case Rand.Recorded(e: Result.Failure, state) =>
-          loop(Shrink.state(state), e.copy(shrinkCount = failure.shrinkCount + 1))
+          case Rand.Recorded(e: Plan.Result.Failure, state) =>
+            loop(Shrink.state(state), Shrunk(e, failure.shrinkCount + 1))
 
-    case _ => failure
+      case _ => failure
 
-  loop(Shrink.state(failure.replay.state), failure)
+    loop(Shrink.state(failure.state.state), Shrunk(failure, 0))

@@ -1,5 +1,7 @@
 package kantan.tests
 
+import Runner.*
+
 // ---------------------------------------------------------------------------------------------------------------------
 //
 // Basic `Runner`.
@@ -10,17 +12,17 @@ package kantan.tests
 
 /** Simple runner that reports tests to the standard output. */
 class ConsoleRunner(conf: Conf) extends Runner:
-  def run(name: String, body: Conf => TestOutcome) =
+  def run(name: String, body: Conf => Runner.Outcome) =
     body(conf) match
-      case TestOutcome(count, Result.Skipped(msg)) =>
+      case Outcome(count, Result.Skipped(msg)) =>
         print(Console.YELLOW)
         println(s"* [SKIPPED] $name ($count successful attempt(s))")
 
-      case TestOutcome(count, Result.Success) =>
+      case Outcome(count, Result.Success) =>
         print(Console.GREEN)
         println(s"* $name ($count successful attempt(s))")
 
-      case TestOutcome(count, Result.Failure(shrinkCount, msg, replay, params)) =>
+      case Outcome(count, Result.Failure(msg, shrinkCount, replay, params)) =>
         print(Console.RED)
         println(s"* $name ($count successful attempt(s))")
         println(s"  Error: $msg")

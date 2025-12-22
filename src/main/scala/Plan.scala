@@ -23,31 +23,27 @@ import Prompt.*
 
 case class Conf(minSuccess: Int, minSize: Int, maxSize: Int)
 
-// - Results of a test -------------------------------------------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------
-/** Status of a test, either a success or a failure. */
-enum Result:
-  case Success
-  case Failure(shrinkCount: Int, msg: String, replay: ReplayState, params: Params.Values)
-  case Skipped(msg: String)
-
-  def isSuccess = this match
-    case Success => true
-    case _       => false
-
-  def isFailure = !isSuccess
-
-/** Description of a test's execution. */
-case class TestOutcome(successCount: Int, result: Result)
-
 // - Test plan ---------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
 /** Describes the ability to search for a failing test case for a given test. */
 trait Plan extends SharedCapability:
-  def execute(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit): TestOutcome
+  def execute(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit): Plan.Outcome
 
 object Plan:
-  def execute(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit): Plan ?->{test} TestOutcome =
+
+  // - Plan results ----------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------------------
+  /** Describes the outcome of a test plan. */
+  case class Outcome(successCount: Int, result: Result)
+
+  /** Describes the result of a test plan. */
+  enum Result:
+    case Success
+    case Failure(msg: String, state: ReplayState, params: Params.Values)
+
+  // - Plan execution --------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------------------
+  def execute(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit): Plan ?->{test} Outcome =
     handler ?=> handler.execute(conf, test)
 
   /** Provides a "growing" test plan.
@@ -64,21 +60,21 @@ object Plan:
             Rand.record:
               runTest(body)
 
-      def execute(conf: Conf, body: (Rand, Params, Size, Assert) ?=> Unit): TestOutcome =
+      def execute(conf: Conf, body: (Rand, Params, Size, Assert) ?=> Unit): Outcome =
         val sizeStep = (conf.maxSize - conf.minSize) / conf.minSuccess
 
-        def loop(count: Int, size: Int): TestOutcome =
+        def loop(count: Int, size: Int): Outcome =
           run(size, body) match
             case Rand.Recorded(Params.Recorded(Assertion.Success, _), state) =>
               // If the state is empty, this is not a random-based test and there's no need to try it more than once.
               // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
               val success = state.isEmpty || count >= conf.minSuccess - 1
 
-              if success then TestOutcome(count + 1, Result.Success)
+              if success then Outcome(count + 1, Result.Success)
               else loop(count + 1, size + sizeStep)
 
             case Rand.Recorded(Params.Recorded(Assertion.Failure(msg), params), state) =>
-              TestOutcome(count, Result.Failure(0, msg, ReplayState(state, size), params))
+              Outcome(count, Result.Failure(msg, ReplayState(state, size), params))
 
         loop(0, conf.minSize)
 

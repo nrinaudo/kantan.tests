@@ -9,7 +9,7 @@ import collection.mutable.Builder
 //
 // ---------------------------------------------------------------------------------------------------------------------
 
-private case class Test(desc: String, body: Conf => TestOutcome)
+private case class Test(desc: String, body: Conf => Runner.Outcome)
 
 /** Set of tests, conventionally related to the same feature.
   *
@@ -24,7 +24,7 @@ trait TestSuite:
   private val testBuilder: Builder[Test, List[Test]] = List.newBuilder
 
   given Runner:
-    override def run(name: String, body: Conf => TestOutcome) =
+    override def run(name: String, body: Conf => Runner.Outcome) =
       testBuilder += Test(name, body).unsafeAssumePure
 
   val run: Runner ?-> Unit = testBuilder.result.foreach: test =>

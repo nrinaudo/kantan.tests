@@ -16,9 +16,26 @@ import caps.*
   * reduction.
   */
 trait Runner extends SharedCapability:
-  def run(name: String, body: Conf => TestOutcome): Unit
+  def run(name: String, body: Conf => Runner.Outcome): Unit
 
 object Runner:
+  // - Test results ----------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------------------
+  case class Outcome(successCount: Int, result: Result)
+
+  enum Result:
+    case Success
+    case Failure(msg: String, shrinkCount: Int, replay: ReplayState, params: Params.Values)
+    case Skipped(msg: String)
+
+    def isSuccess = this match
+      case Success => true
+      case _       => false
+
+    def isFailure = !isSuccess
+
+  // - Runner DSL ------------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------------------
   /** Yields a "skipped" result with the specified message.
     *
     * This can be useful to implement an `ignore` test prompt, for example. Another typical use case would be for tests
@@ -27,6 +44,7 @@ object Runner:
     */
   def skip(name: String)(msg: String): Runner ?-> Unit =
     run(name): _ =>
-      TestOutcome(0, Result.Skipped(msg))
+      Outcome(0, Result.Skipped(msg))
 
-  def run(name: String)(body: Conf => TestOutcome): Runner ?->{body} Unit = handler ?=> handler.run(name, body)
+  def run(name: String)(body: Conf => Outcome): Runner ?->{body} Unit =
+    handler ?=> handler.run(name, body)

@@ -31,17 +31,25 @@ object Prompt:
     * usable prompts.
     */
   object core:
+
     /** Runs the specified test, shrinking failing test cases if needed. */
     def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner, Shrink) ?->{body} Unit =
       Runner.run(desc): conf =>
-        Plan.execute(conf, body) match
-          case TestOutcome(count, failure: Result.Failure) => TestOutcome(count, shrink(body, failure))
-          case other                                       => other
+        val outcome = Plan.execute(conf, body)
+
+        val result = outcome.result match
+          case failure: Plan.Result.Failure =>
+            val shrunk = Shrink.shrink(body, failure)
+            Runner.Result.Failure(shrunk.result.msg, shrunk.shrinkCount, shrunk.result.state, shrunk.result.params)
+
+          case other => Runner.Result.Success
+
+        Runner.Outcome(outcome.successCount, result)
 
     /** Runs the specified test, without shrinking failing test cases. */
     def testNoShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner) ?->{body} Unit =
-      Runner.run(desc): conf =>
-        Plan.execute(conf, body)
+      Shrink.noop:
+        test(desc)(body)
 
   /** Provides default test prompts, the one users should be using unless they have a pretty good idea what they're
     * doing.
@@ -72,10 +80,10 @@ object Prompt:
           Rand.replay(state.state):
             runTest(body) match
               case Params.Recorded(Assertion.Success, _) =>
-                TestOutcome(1, Result.Success)
+                Runner.Outcome(1, Runner.Result.Success)
 
               case Params.Recorded(Assertion.Failure(msg), params) =>
-                TestOutcome(0, Result.Failure(0, msg, state, params))
+                Runner.Outcome(0, Runner.Result.Failure(msg, 0, state, params))
 
     /** Runs the specified test exactly once, ignoring configuration and using the state denoted by the specified
       * string.
