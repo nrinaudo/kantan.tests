@@ -17,6 +17,14 @@ object Hedgehog extends TestSuite:
 
     assertEquals(merge(x, y).total.value, x.total.value + y.total.value)
 
+  // Same test as above, but this one uses a test plan that enumerates all small values.
+  // This finds a smaller failing test case, in fewer iterations, without a need for shrinking.
+  Prompt.exhaust.test("total (exhaustive)"):
+    val x = Params.param("x", order(cheap))
+    val y = Params.param("y", order(expensive))
+
+    assertEquals(merge(x, y).total.value, x.total.value + y.total.value)
+
   case class USD(value: Long)
   case class Item(name: String, price: USD)
   case class Order(items: List[Item]):

@@ -51,6 +51,12 @@ object Prompt:
       Shrink.noop:
         core.test(desc)(test)
 
+  object exhaust:
+    /** Runs the specified test by attempting to enumerate all small test cases. */
+    def test(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{test} Unit =
+      Plan.exhaust:
+        core.testNoShrink(desc)(test)
+
   /** Provides default test prompts, the one users should be using unless they have a pretty good idea what they're
     * doing.
     */
