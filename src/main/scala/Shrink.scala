@@ -1,5 +1,6 @@
 package kantan.tests
 
+import caps.*
 import Prompt.*
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -16,7 +17,7 @@ import Prompt.*
   * The API for this is designed with experimentation in mind, allowing "easy" implementation of wacky ideas. At the
   * time of writing, there really is only one useful implementation: `Shrink.Naive`.
   */
-trait Shrink:
+trait Shrink extends SharedCapability:
   def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, failure: FailingCase): Shrink.Result
 
 object Shrink:
