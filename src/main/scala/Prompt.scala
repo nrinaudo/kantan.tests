@@ -33,28 +33,28 @@ object Prompt:
   object core:
 
     /** Runs the specified test, shrinking failing test cases if needed. */
-    def test(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner, Shrink) ?->{test} Unit =
+    def test(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): (Search, Runner, Shrink) ?->{test} Unit =
       Runner.run(desc): conf =>
-        val outcome = Plan.execute(conf, test)
+        val outcome = Search.search(conf, test)
 
-        val result = outcome.result match
-          case failure: Plan.Result.Failure =>
+        val result = outcome.failure match
+          case Some(failure) =>
             val shrunk = Shrink.shrink(test, failure)
-            Runner.Result.Failure(shrunk.result.msg, shrunk.shrinkCount, shrunk.result.state, shrunk.result.params)
+            Runner.Result.Failure(shrunk.failure.msg, shrunk.shrinkCount, shrunk.failure.state, shrunk.failure.params)
 
-          case other => Runner.Result.Success
+          case None => Runner.Result.Success
 
         Runner.Outcome(outcome.successCount, result)
 
     /** Runs the specified test, without shrinking failing test cases. */
-    def testNoShrink(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): (Plan, Runner) ?->{test} Unit =
+    def testNoShrink(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): (Search, Runner) ?->{test} Unit =
       Shrink.noop:
         core.test(desc)(test)
 
-  object exhaust:
+  object enumerate:
     /** Runs the specified test by attempting to enumerate all small test cases. */
     def test(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{test} Unit =
-      Plan.exhaust:
+      Search.enumerate:
         core.testNoShrink(desc)(test)
 
   /** Provides default test prompts, the one users should be using unless they have a pretty good idea what they're
@@ -63,7 +63,7 @@ object Prompt:
   object default:
     /** Runs the specified test, shrinking failing test cases if found. */
     def test(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{test} Unit =
-      Plan.growing:
+      Search.linearGrowth:
         Shrink.Naive:
           Shrink.Naive.caching(1000):
             core.test(desc)(test)
@@ -73,7 +73,7 @@ object Prompt:
       * This might be desirable for tests that are particularly expensive to run on large test cases, for example.
       */
     def testNoShrink(desc: String)(test: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{test} Unit =
-      Plan.growing:
+      Search.linearGrowth:
         core.testNoShrink(desc)(test)
 
     /** Runs the specified test exactly once, ignoring configuration and using the specified parameters instead.

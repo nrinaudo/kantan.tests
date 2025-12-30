@@ -19,7 +19,7 @@ object Hedgehog extends TestSuite:
 
   // Same test as above, but this one uses a test plan that enumerates all small values.
   // This finds a smaller failing test case, in fewer iterations, without a need for shrinking.
-  Prompt.exhaust.test("total (exhaustive)"):
+  Prompt.enumerate.test("total (exhaustive)"):
     val x = Params.param("x", order(cheap))
     val y = Params.param("y", order(expensive))
 

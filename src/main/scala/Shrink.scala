@@ -17,29 +17,29 @@ import Prompt.*
   * time of writing, there really is only one useful implementation: `Shrink.Naive`.
   */
 trait Shrink:
-  def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, result: Plan.Result.Failure): Shrink.Result
+  def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, failure: FailingCase): Shrink.Result
 
 object Shrink:
   // - Shrink result ---------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   /** Contains the smallest failing test case we could find, with the number of times it was shrunk. */
-  case class Result(result: Plan.Result.Failure, shrinkCount: Int)
+  case class Result(failure: FailingCase, shrinkCount: Int)
 
   // - Basic operations ------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   /** Shrinks the specified test failure. */
   def shrink(
       test: (Rand, Params, Size, Assert) ?=> Unit,
-      result: Plan.Result.Failure
+      failure: FailingCase
   ): Shrink ?->{test} Shrink.Result =
-    handler ?=> handler.shrink(test, result)
+    handler ?=> handler.shrink(test, failure)
 
   // - Naive shrinking -------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   /** Shrinkers based on a naive exploration of the test space.
     *
     * Naive shrinkers take a state and generate a list of interesting states to look at from it. They then explore all
-    * of them until they find a failing one, and start the process over from that one.
+    * of them until they find a new failing one, and start the process over.
     */
   trait Naive extends Shrink:
     def shrink(state: Rand.State): LazyList[Rand.State]
@@ -47,19 +47,19 @@ object Shrink:
     // The concept here is very simple: the state shrinker generates all interesting states to look at, ordered from
     // most to least interesting. We'll then explore them, in that order, until we either run out of states, or find
     // a new failing one. We'll then attempt to shrink that one.
-    override def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, result: Plan.Result.Failure) =
+    override def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, failure: FailingCase) =
       def loop(states: LazyList[Rand.State], shrunk: Shrink.Result): Shrink.Result = states match
         case head #:: tail =>
-          Naive.runState(head, shrunk.result.state.size, test) match
-            case Rand.Recorded(Plan.Result.Success, _) =>
+          Naive.runState(head, shrunk.failure.state.size, test) match
+            case Rand.Recorded(None, _) =>
               loop(tail, shrunk)
 
-            case Rand.Recorded(e: Plan.Result.Failure, state) =>
+            case Rand.Recorded(Some(e), state) =>
               loop(shrink(state), Shrink.Result(e, shrunk.shrinkCount + 1))
 
         case _ => shrunk
 
-      loop(shrink(result.state.state), Shrink.Result(result, 0))
+      loop(shrink(failure.state.state), Shrink.Result(failure, 0))
 
   object Naive:
     def shrink(state: Rand.State): Naive ?-> LazyList[Rand.State] = handler ?=> handler.shrink(state)
@@ -74,15 +74,15 @@ object Shrink:
         state: Rand.State,
         size: Int,
         test: (Rand, Params, Size, Assert) ?=> Unit
-    ): Rand.Recorded[Plan.Result] =
+    ): Rand.Recorded[Option[FailingCase]] =
       Size(size):
         Rand.replay(state):
           Rand
             .record(runTest(test))
             .map:
-              case Params.Recorded(Assertion.Success, _)           => Plan.Result.Success
+              case Params.Recorded(Assertion.Success, _)           => None
               case Params.Recorded(Assertion.Failure(msg), params) =>
-                Plan.Result.Failure(msg, ReplayState(state, size), params)
+                Some(FailingCase(msg, ReplayState(state, size), params))
 
     /** Adds an LRU-cache to an existing naive shrinker, to avoid revisiting known states. */
     def caching[A](maxSize: Int)(body: Naive ?=> A): Naive ?->{body} A = handler ?=>
@@ -126,6 +126,6 @@ object Shrink:
     * much noise.
     */
   def noop[A](body: Shrink ?=> A): A =
-    given Shrink = (_, result) => Shrink.Result(result, 0)
+    given Shrink = (_, failure) => Shrink.Result(failure, 0)
 
     body
