@@ -1,6 +1,6 @@
 package kantan.tests
 
-import Prompt.default.*
+import Prompt.*
 import Assert.*
 
 /** Tests a hand-rolled list sorting implementation.

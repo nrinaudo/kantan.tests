@@ -7,9 +7,14 @@ import collection.mutable.Builder
 //
 // Groups tests together for ease of execution.
 //
+// This works by buffering all calls to an internal `Runner`, and passing them to an actual one later.
+//
 // ---------------------------------------------------------------------------------------------------------------------
 
-private case class Test(desc: String, test: Conf => Runner.Outcome)
+/** Stores calls to `Runner.run` in order to run them later. */
+private class TestWrapper(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan):
+  val run: Runner ?->{test} Unit =
+    Runner.run(desc, test, plan)
 
 /** Set of tests, conventionally related to the same feature.
   *
@@ -21,12 +26,12 @@ private case class Test(desc: String, test: Conf => Runner.Outcome)
   * }}}
   */
 trait TestSuite:
-  private val testBuilder: Builder[Test, List[Test]] = List.newBuilder
+  private val testBuilder: Builder[TestWrapper, List[TestWrapper]] = List.newBuilder
 
-  given Runner:
-    override def run(name: String, test: Conf => Runner.Outcome) =
-      testBuilder += Test(name, test).unsafeAssumePure
+  protected given Runner:
+    override def run(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan) =
+      testBuilder += TestWrapper(desc, test, plan).unsafeAssumePure
 
-  val run: Runner ?-> Unit = testBuilder.result.foreach: test =>
-    Runner.run(test.desc): conf =>
-      test.test(conf)
+  val run: Runner ?-> Unit =
+    testBuilder.result.foreach: test =>
+      test.run

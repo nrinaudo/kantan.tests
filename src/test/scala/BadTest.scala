@@ -1,6 +1,6 @@
 package kantan.tests
 
-import Prompt.default.*
+import Prompt.*
 import Assert.*
 
 /** Shows how example-based tests can be misleading, and how generative ones catch incorrect assumptions.
@@ -22,7 +22,7 @@ object BadTest extends TestSuite:
 
   // Replays the previous test on a known failing configuration.
   // This won't shrink or try different sizes, but merely replay that one, single failing test case.
-  replay("Strings have odd lengths (this should fail)")("H4sIAAAAAAAA_2JgYGBlgGBGBjQAAAAA__8="):
+  replay("Strings have odd lengths (failure replay)")("H4sIAAAAAAAA_2JgYGBlgGBGBjQAAAAA__8="):
     val input = Params.param("Input", Rand.identifier)
 
     Assert.assert(input.length % 2 != 0, s"'$input's length was even")
