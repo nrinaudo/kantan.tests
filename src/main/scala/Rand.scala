@@ -34,6 +34,17 @@ object Rand:
 
     body
 
+  // - Bound generator -------------------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------------------------------------
+  /** Random generator that can never pull numbers higher than the specified upper boundary.
+    *
+    * This is useful to limit the size of generated test cases, for example.
+    */
+  def bound[A](upper: Int)(body: Rand ?=> A): Rand ?->{body} A = handler ?=>
+    given Rand = (max: Int) => handler.nextInt(math.min(upper, max))
+
+    body
+
   // - Random state recording ------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   case class Recorded[A](value: A, state: State):

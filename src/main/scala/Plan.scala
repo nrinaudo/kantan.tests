@@ -31,16 +31,16 @@ object Plan:
 
     Runner.Outcome(outcome.successCount, result)
 
-  val linearGrowth: Plan =
+  val grow: Plan =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) =>
-      Search.linearGrowth:
+      Search.grow:
         Shrink.Naive:
           Shrink.Naive.caching(1000):
             execute(test, conf)
 
-  val linearGrowthNoShrink: Plan =
+  val growNoShrink: Plan =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) =>
-      Search.linearGrowth:
+      Search.grow:
         Shrink.noop:
           execute(test, conf)
 

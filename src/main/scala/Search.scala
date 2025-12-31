@@ -25,38 +25,43 @@ object Search:
   def search(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit): Search ?->{test} Result =
     handler ?=> handler.search(conf, test)
 
-  // - Linear growth ---------------------------------------------------------------------------------------------------
+  // - Test case growth ------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
-  /** Searches through the test space by increasing `size` linearly from the minimum allowed value to the maximum one.
+  /** Searches through the test space by generating increasingly large test cases.
     *
-    * This is heavily inspired by QuickCheck and other members of the XXXCheck family of generative test libraries.
+    * This is done by playing on two parameters:
+    *   - the test case's `size` (as controlled by `Size`), which increases linearly from `minSize` to `maxSize`.
+    *   - the maximum value pulled by the random generator, which increases geometrically from `1` to `Int.MaxValue`.
+    *
+    * This is heavily inspired by QuickCheck and similar tools.
     */
-  def linearGrowth[A](body: Search ?=> A): A =
+  def grow[A](body: Search ?=> A): A =
     given Search:
-      // Runs the specified test on the specified size.
-      def run(size: Int, test: (Rand, Params, Size, Assert) ?=> Unit) =
+      def run(size: Int, rand: Double, test: (Rand, Params, Size, Assert) ?=> Unit) =
         Size(size):
           Rand:
-            Rand.record:
-              runTest(test)
+            Rand.bound(rand.toInt):
+              Rand.record:
+                runTest(test)
 
       override def search(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit) =
         val sizeStep = (conf.maxSize - conf.minSize) / conf.minSuccess
+        val randStep = math.pow(Int.MaxValue, 1.0 / conf.minSuccess)
 
-        def loop(count: Int, size: Int): Result =
-          run(size, test) match
+        def loop(count: Int, size: Int, rand: Double): Result =
+          run(size, rand, test) match
             case Rand.Recorded(Params.Recorded(Assertion.Success, _), state) =>
               // If the state is empty, this is not a random-based test and there's no need to try it more than once.
               // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
               val success = state.isEmpty || count >= conf.minSuccess - 1
 
               if success then Result(count + 1, None)
-              else loop(count + 1, size + sizeStep)
+              else loop(count + 1, size + sizeStep, rand * randStep)
 
             case Rand.Recorded(Params.Recorded(Assertion.Failure(msg), params), state) =>
               Result(count, Some(FailingCase(msg, ReplayState(state, size), params)))
 
-        loop(0, conf.minSize)
+        loop(0, conf.minSize, randStep)
 
     body
 

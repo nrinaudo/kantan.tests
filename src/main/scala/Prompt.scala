@@ -12,14 +12,14 @@ package kantan.tests
 
 object Prompt:
   def test(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-    linearGrowth(desc)(body)
+    grow(desc)(body)
 
-  object linearGrowth:
+  object grow:
     def apply(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-      Runner.run(desc, body, Plan.linearGrowth)
+      Runner.run(desc, body, Plan.grow)
 
     def noShrink(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
-      Runner.run(desc, body, Plan.linearGrowthNoShrink)
+      Runner.run(desc, body, Plan.growNoShrink)
 
   def enumerate(desc: String)(body: (Rand, Params, Size, Assert) ?=> Unit): Runner ?->{body} Unit =
     Runner.run(desc, body, Plan.enumerate)
