@@ -145,3 +145,7 @@ object Rand:
     val head = oneOf(lowerAscii, upperAscii, '_')
 
     (head :: tail).mkString
+
+  def resize[A](size: Int, content: (Rand, Size) ?=> A): (Rand, Size) ?->{content} A =
+    Size(size):
+      content
