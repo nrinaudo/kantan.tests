@@ -122,7 +122,7 @@ object Rand:
   val digit: Rand ?-> Char =
     range('0', '9')
 
-  def oneOf[A](head: Rand ?-> A, tail: (Rand ?-> A)*): Rand ?-> A =
+  def oneOf[A, Tail ^](head: Rand ?=> A, tail: (Rand ?->{Tail} A)*): Rand ?->{head, Tail} A =
     val index = int(tail.length)
 
     if index == 0 then head
