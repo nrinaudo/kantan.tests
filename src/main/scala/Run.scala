@@ -22,12 +22,6 @@ object Run:
     case Failure(msg: String, shrinkCount: Int, replay: ReplayState, params: Params.Values)
     case Skipped(msg: String)
 
-    def isSuccess = this match
-      case Success => true
-      case _       => false
-
-    def isFailure = !isSuccess
-
   // - Run DSL ---------------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   def run(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan): Run ?->{test} Unit =
