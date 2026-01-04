@@ -9,10 +9,10 @@ import caps.*
 // ---------------------------------------------------------------------------------------------------------------------
 
 /** Capability describing the ability to run a test. */
-trait Runner extends SharedCapability:
+trait Run extends SharedCapability:
   def run(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan): Unit
 
-object Runner:
+object Run:
   // - Test results ----------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   case class Outcome(successCount: Int, result: Result)
@@ -28,7 +28,7 @@ object Runner:
 
     def isFailure = !isSuccess
 
-  // - Runner DSL ------------------------------------------------------------------------------------------------------
+  // - Run DSL ---------------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
-  def run(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan): Runner ?->{test} Unit =
+  def run(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan): Run ?->{test} Unit =
     handler ?=> handler.run(desc, test, plan)

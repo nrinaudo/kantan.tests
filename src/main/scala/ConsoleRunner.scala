@@ -1,17 +1,17 @@
 package kantan.tests
 
-import Runner.*
+import Run.*
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-// Basic `Runner`.
+// Basic `Run`.
 //
 // This is more intended for demonstration purposes than anything else.
 //
 // ---------------------------------------------------------------------------------------------------------------------
 
 /** Simple runner that reports tests to the standard output. */
-class ConsoleRunner(conf: Conf) extends Runner:
+class ConsoleRunner(conf: Conf) extends Run:
   override def run(name: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan) =
     plan.execute(test, conf) match
       case Outcome(count, Result.Skipped(msg)) =>
