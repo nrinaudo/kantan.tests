@@ -58,8 +58,8 @@ object Plan:
       Size(state.size):
         Rand.replay(state.state):
           runTest(test) match
-            case Params.Recorded(Assertion.Success, _) =>
+            case Params.Recorded(AssertionResult.Success, _) =>
               Run.Outcome(1, Run.Result.Success)
 
-            case Params.Recorded(Assertion.Failure(msg), params) =>
+            case Params.Recorded(AssertionResult.Failure(msg), params) =>
               Run.Outcome(0, Run.Result.Failure(msg, 0, state, params))

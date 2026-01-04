@@ -81,8 +81,8 @@ object Shrink:
           Rand
             .record(runTest(test))
             .map:
-              case Params.Recorded(Assertion.Success, _)           => None
-              case Params.Recorded(Assertion.Failure(msg), params) =>
+              case Params.Recorded(AssertionResult.Success, _)           => None
+              case Params.Recorded(AssertionResult.Failure(msg), params) =>
                 Some(FailingCase(msg, ReplayState(state, size), params))
 
     /** Adds an LRU-cache to an existing naive shrinker, to avoid revisiting known states. */

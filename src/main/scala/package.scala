@@ -14,7 +14,7 @@ package kantan.tests
   */
 private[tests] def runTest(
     test: (Rand, Params, Size, Assert) ?=> Unit
-): (Rand, Size) ?->{test} Params.Recorded [Assertion] =
+): (Rand, Size) ?->{test} Params.Recorded [AssertionResult] =
   Params:
     Assert:
       test

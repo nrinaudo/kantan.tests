@@ -50,7 +50,7 @@ object Search:
 
         def loop(count: Int, size: Int, rand: Double): Result =
           run(size, rand, test) match
-            case Rand.Recorded(Params.Recorded(Assertion.Success, _), state) =>
+            case Rand.Recorded(Params.Recorded(AssertionResult.Success, _), state) =>
               // If the state is empty, this is not a random-based test and there's no need to try it more than once.
               // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
               val success = state.isEmpty || count >= conf.minSuccess - 1
@@ -58,7 +58,7 @@ object Search:
               if success then Result(count + 1, None)
               else loop(count + 1, size + sizeStep, rand * randStep)
 
-            case Rand.Recorded(Params.Recorded(Assertion.Failure(msg), params), state) =>
+            case Rand.Recorded(Params.Recorded(AssertionResult.Failure(msg), params), state) =>
               Result(count, Some(FailingCase(msg, ReplayState(state, size), params)))
 
         loop(0, conf.minSize, randStep)
@@ -127,14 +127,14 @@ object Search:
         @annotation.tailrec
         def loop(count: Int, state: Rand.State): Result =
           run(state) match
-            case Rand.Recorded(Params.Recorded(Assertion.Success, _), state) =>
+            case Rand.Recorded(Params.Recorded(AssertionResult.Success, _), state) =>
               if count >= conf.minSuccess - 1 then Result(count + 1, None)
               else
                 nextState(state) match
                   case Some(state) => loop(count + 1, state)
                   case None        => Result(count + 1, None)
 
-            case Rand.Recorded(Params.Recorded(Assertion.Failure(msg), params), state) =>
+            case Rand.Recorded(Params.Recorded(AssertionResult.Failure(msg), params), state) =>
               Result(count, Some(FailingCase(msg, ReplayState(state, conf.maxSize), params)))
 
         loop(0, Rand.State())

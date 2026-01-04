@@ -16,7 +16,7 @@ import scala.caps.unsafe.unsafeAssumePure
 private case class Error(label: Assert^{}, message: String) extends ControlThrowable with NoStackTrace
 
 /** Result of an assertion block. */
-enum Assertion:
+enum AssertionResult:
   case Success
   case Failure(msg: String)
 
@@ -25,16 +25,16 @@ sealed abstract class Assert extends SharedCapability
 
 object Assert:
   /** Runs the specified body, turning errors in `Assertion.Failure`. */
-  def apply(body: Assert ?=> Unit): Assertion =
+  def apply(body: Assert ?=> Unit): AssertionResult =
     given handler: Assert = new Assert {}
 
     try
       body
-      Assertion.Success
+      AssertionResult.Success
     catch
-      case Error(`handler`, message) => Assertion.Failure(message)
+      case Error(`handler`, message) => AssertionResult.Failure(message)
       case e: Error                  => throw e
-      case e                         => Assertion.Failure(e.getMessage)
+      case e                         => AssertionResult.Failure(e.getMessage)
 
   /** Fails with the specified message, jumping back to the specified `Assert`. */
   def fail(msg: String): Assert ?-> Nothing =
