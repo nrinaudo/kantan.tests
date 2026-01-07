@@ -20,9 +20,14 @@ trait Params extends SharedCapability:
   def param[A](name: String, value: A): Unit
 
 object Params:
-  case class Values(values: Map[String, String])
+  opaque type Values = Map[String, String]
+
   object Values:
-    val empty: Values = Values(Map.empty)
+    val empty: Values = Map.empty
+
+    def apply(values: Map[String, String]): Values = values
+
+    extension (v: Values) def values: Map[String, String] = v
 
   case class Recorded[A](value: A, params: Values)
 
@@ -33,7 +38,7 @@ object Params:
       override def param[A](name: String, value: A) =
         records += name -> value.toString
 
-    Recorded(body, Values(records.toMap))
+    Recorded(body, records.toMap)
 
   def param[A](name: String, value: A): Params ?-> A = r ?=>
     r.param(name, value)
