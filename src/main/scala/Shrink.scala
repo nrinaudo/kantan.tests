@@ -60,7 +60,7 @@ object Shrink:
 
         case _ => bestShrink
 
-      loop(shrink(testCase.state.state), Shrink.Result(testCase, 0))
+      loop(shrink(testCase.state.randState), Shrink.Result(testCase, 0))
 
   object Naive:
     def shrink(state: Rand.State): Naive ?-> LazyList[Rand.State] = handler ?=> handler.shrink(state)

@@ -57,7 +57,7 @@ object Plan:
   def replay(state: ReplayState): Plan =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) =>
       Size(state.size):
-        Rand.replay(state.state):
+        Rand.replay(state.randState):
           runTest(test) match
             case Params.Recorded(AssertionResult.Success, _) =>
               Run.Outcome(1, Run.Result.Success)
