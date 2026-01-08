@@ -6,22 +6,22 @@ import Assert.*
 /** Shows how to rewrite the Hedgehog examples using kantan.tests. */
 object Hedgehog extends TestSuite:
   test("example1"):
-    val x = Params.param("x", Rand.lowerAscii)
-    val y = Params.param("y", Rand.int(50))
+    val x = Rand.lowerAscii.logAs("x")
+    val y = Rand.int(50).logAs("y")
 
     Assert.assert(y < 87 && x <= 'r')
 
   test("total"):
-    val x = Params.param("x", order(cheap))
-    val y = Params.param("y", order(expensive))
+    val x = order(cheap).logAs("x")
+    val y = order(expensive).logAs("y")
 
     assertEquals(merge(x, y).total.value, x.total.value + y.total.value)
 
   // Same test as above, but this one uses a test plan that enumerates all small values.
   // This finds a smaller failing test case, in fewer iterations, without a need for shrinking.
   enumerate("total (exhaustive)"):
-    val x = Params.param("x", order(cheap))
-    val y = Params.param("y", order(expensive))
+    val x = order(cheap).logAs("x")
+    val y = order(expensive).logAs("y")
 
     assertEquals(merge(x, y).total.value, x.total.value + y.total.value)
 

@@ -12,24 +12,31 @@ import caps.*
 // ---------------------------------------------------------------------------------------------------------------------
 /** Describes the ability to search for a failing test case for a given test. */
 trait Search extends SharedCapability:
-  def search(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit): Search.Result
+  def search(conf: Conf, test: (Rand, Log, Size, Assert) ?=> Unit): Search.Result
 
 object Search:
 
   // - Search results --------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
-  case class Result(testCase: Option[FailingTestCase], successCount: Int, params: Params.Values)
+  case class Result(testCase: Option[FailingTestCase], successCount: Int)
 
   object Result:
-    def failure(msg: String, randState: Rand.State, size: Int, successCount: Int, params: Params.Values): Result =
-      Result(Some(FailingTestCase(msg, ReplayState(randState, size))), successCount, params)
+    def failure(
+        msg: String,
+        randState: Rand.State,
+        size: Int,
+        successCount: Int,
+        inputs: Log.Inputs,
+        logs: Log.Entries
+    ): Result =
+      Result(Some(FailingTestCase(msg, ReplayState(randState, size), inputs, logs)), successCount)
 
-    def success(successCount: Int, params: Params.Values): Result =
-      Result(None, successCount, params)
+    def success(successCount: Int): Result =
+      Result(None, successCount)
 
   // - Search execution ------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
-  def search(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit): Search ?->{test} Result =
+  def search(conf: Conf, test: (Rand, Log, Size, Assert) ?=> Unit): Search ?->{test} Result =
     handler ?=> handler.search(conf, test)
 
   // - Test case growth ------------------------------------------------------------------------------------------------
@@ -44,29 +51,29 @@ object Search:
     */
   def grow[A](body: Search ?=> A): A =
     given Search:
-      def run(size: Int, randCeiling: Double, test: (Rand, Params, Size, Assert) ?=> Unit) =
+      def run(size: Int, randCeiling: Double, test: (Rand, Log, Size, Assert) ?=> Unit) =
         Size(size):
           Rand:
             Rand.bound(randCeiling.toInt):
               Rand.record:
                 runTest(test)
 
-      override def search(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit) =
+      override def search(conf: Conf, test: (Rand, Log, Size, Assert) ?=> Unit) =
         val sizeStep = (conf.maxSize - conf.minSize) / conf.minSuccess
         val randStep = math.pow(Int.MaxValue, 1.0 / conf.minSuccess)
 
         def loop(successCount: Int, size: Int, randCeiling: Double): Result =
           run(size, randCeiling, test) match
-            case Rand.Recorded(Params.Recorded(AssertionResult.Success, params), state) =>
+            case Rand.Recorded(Log.Recorded(AssertionResult.Success, _, _), state) =>
               // If the state is empty, this is not a random-based test and there's no need to try it more than once.
               // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
               val success = state.isEmpty || successCount >= conf.minSuccess - 1
 
-              if success then Result.success(successCount + 1, params)
+              if success then Result.success(successCount + 1)
               else loop(successCount + 1, size + sizeStep, randCeiling * randStep)
 
-            case Rand.Recorded(Params.Recorded(AssertionResult.Failure(msg), params), randState) =>
-              Result.failure(msg, randState, size, successCount, params)
+            case Rand.Recorded(Log.Recorded(AssertionResult.Failure(msg), inputs, logs), randState) =>
+              Result.failure(msg, randState, size, successCount, inputs, logs)
 
         loop(0, conf.minSize, randStep)
 
@@ -115,7 +122,7 @@ object Search:
           .map: min =>
             Rand.State(values.updated(min.index, min.value + 1))
 
-      override def search(conf: Conf, test: (Rand, Params, Size, Assert) ?=> Unit) =
+      override def search(conf: Conf, test: (Rand, Log, Size, Assert) ?=> Unit) =
         // Runs the test using the specified state.
         // Note how we use `conf.maxSize` for size. This is a bit of a hack, and there must be a way of starting from
         // the min size and increasing that based on some criteria. But, for the time being, it's better to make the
@@ -136,15 +143,15 @@ object Search:
         @annotation.tailrec
         def loop(count: Int, state: Rand.State): Result =
           run(state) match
-            case Rand.Recorded(Params.Recorded(AssertionResult.Success, params), state) =>
-              if count >= conf.minSuccess - 1 then Result(None, count + 1, params)
+            case Rand.Recorded(Log.Recorded(AssertionResult.Success, _, _), state) =>
+              if count >= conf.minSuccess - 1 then Result(None, count + 1)
               else
                 nextState(state) match
                   case Some(state) => loop(count + 1, state)
-                  case None        => Result.success(count + 1, params)
+                  case None        => Result.success(count + 1)
 
-            case Rand.Recorded(Params.Recorded(AssertionResult.Failure(msg), params), state) =>
-              Result.failure(msg, state, conf.maxSize, count, params)
+            case Rand.Recorded(Log.Recorded(AssertionResult.Failure(msg), inputs, logs), state) =>
+              Result.failure(msg, state, conf.maxSize, count, inputs, logs)
 
         loop(0, Rand.State())
 

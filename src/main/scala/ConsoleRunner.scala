@@ -10,24 +10,25 @@ package kantan.tests
 
 /** Simple runner that reports tests to the standard output. */
 class ConsoleRunner(conf: Conf) extends Run:
-  override def run(name: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan) =
+  override def run(name: String, test: (Rand, Log, Size, Assert) ?=> Unit, plan: Plan) =
     plan.execute(test, conf) match
       case TestResult.Skipped(msg) =>
         print(Console.YELLOW)
         println(s"* [SKIPPED] $name")
         println(s"  Message:  $msg")
 
-      case TestResult.Ran(successCount, params, TestResult.Status.Success) =>
+      case TestResult.Success(successCount) =>
         print(Console.GREEN)
-        println(s"* $name (successCount successful attempt(s))")
+        println(s"* $name ($successCount successful attempt(s))")
 
-      case TestResult.Ran(successCount, params, TestResult.Status.Failure(msg, shrinkCount, replay)) =>
+      case TestResult.Failure(FailingTestCase(msg, replay, inputs, logs), shrinkCount, successCount) =>
+        val inputMap = inputs.toMap
         print(Console.RED)
         println(s"* $name ($successCount successful attempt(s))")
         println(s"  Error: $msg")
-        if params.values.nonEmpty then
-          println(s"  Parameters (shrunk $shrinkCount time(s)):")
-          params.values.foreach:
+        if inputMap.nonEmpty then
+          println(s"  Inputs (shrunk $shrinkCount time(s)):")
+          inputMap.foreach:
             case (name, value) => println(s"    - $name = $value")
         println(s"  Replay: ${replay.encode}")
 

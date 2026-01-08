@@ -5,13 +5,13 @@ import Assert.*
 
 object ScalaCheck extends TestSuite:
   test("list tail"):
-    val n = Params.param("n", Rand.int(100))
-    val l = Params.param("l", Rand.list(Rand.int(100)))
+    val n = Rand.int(100).logAs("n")
+    val l = Rand.list(Rand.int(100)).logAs("l")
 
     assertEquals((n :: l).tail, l)
 
   test("list head"):
-    val l = Params.param("l", Rand.list(Rand.int(100)))
+    val l = Rand.list(Rand.int(100)).logAs("l")
 
     assertEquals(l.head, l(0))
 
@@ -31,5 +31,5 @@ object ScalaCheck extends TestSuite:
     )
 
   test("ex1"):
-    val p = Params.param("p", genPerson)
+    val p = genPerson.logAs("p")
     assertEquals(p.isTeenager, p.age >= 13 && p.age <= 19)

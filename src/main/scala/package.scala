@@ -13,9 +13,9 @@ package kantan.tests
   * This is intended for internal use only.
   */
 private[tests] def runTest(
-    test: (Rand, Params, Size, Assert) ?=> Unit
-): (Rand, Size) ?->{test} Params.Recorded [AssertionResult] =
-  Params:
+    test: (Rand, Log, Size, Assert) ?=> Unit
+): (Rand, Size) ?->{test} Log.Recorded [AssertionResult] =
+  Log:
     Assert:
       test
 
@@ -36,5 +36,37 @@ case class Conf(minSuccess: Int, minSize: Int, maxSize: Int)
   *   message with which the test failed.
   * @param state
   *   how to replay the failing test case, using for example `Prompt.replay`.
+  * @param inputs
+  *   name / value mapping for the inputs that caused this failure.
+  * @param logs
+  *   all logs generated during the test.
   */
-case class FailingTestCase(msg: String, state: ReplayState)
+case class FailingTestCase(msg: String, state: ReplayState, inputs: Log.Inputs, logs: Log.Entries)
+
+/** Describes the result of running a single test. */
+enum TestResult:
+  /** The test was skipped.
+    * @param msg
+    *   explains why the test was skipped.
+    */
+  case Skipped(msg: String)
+
+  /** The test never failed.
+    * @param successCount
+    *   number of times the test was evaluated successfully.
+    */
+  case Success(successCount: Int)
+
+  /** The test failed.
+    * @param testCase
+    *   describes how the test was failed and how to reproduce it.
+    * @param shrinkCount
+    *   number of times the failing test case was reduced from its original size.
+    * @param successCount
+    *   number of times the test was evaluated successfully.
+    */
+  case Failure(
+      testCase: FailingTestCase,
+      shrinkCount: Int,
+      successCount: Int
+  )

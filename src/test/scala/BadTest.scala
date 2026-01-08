@@ -16,13 +16,13 @@ object BadTest extends TestSuite:
 
   // Making that test generative catches the problem immediately.
   test("Strings have odd lengths (this should fail)"):
-    val input = Params.param("Input", Rand.identifier)
+    val input = Rand.identifier.logAs("Input")
 
     Assert.assert(input.length % 2 != 0, s"'$input's length was even")
 
   // Replays the previous test on a known failing configuration.
   // This won't shrink or try different sizes, but merely replay that one, single failing test case.
   replay("Strings have odd lengths (failure replay)")("H4sIAAAAAAAA_2JgYGBlgGBGBjQAAAAA__8="):
-    val input = Params.param("Input", Rand.identifier)
+    val input = Rand.identifier.logAs("Input")
 
     Assert.assert(input.length % 2 != 0, s"'$input's length was even")

@@ -12,7 +12,7 @@ import collection.mutable.Builder
 // ---------------------------------------------------------------------------------------------------------------------
 
 /** Stores calls to `Run.run` in order to run them later. */
-private class TestWrapper(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan):
+private class TestWrapper(desc: String, test: (Rand, Log, Size, Assert) ?=> Unit, plan: Plan):
   val run: Run ?->{test} Unit =
     Run.run(desc, test, plan)
 
@@ -29,7 +29,7 @@ trait TestSuite:
   private val testBuilder: Builder[TestWrapper, List[TestWrapper]] = List.newBuilder
 
   protected given Run:
-    override def run(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan) =
+    override def run(desc: String, test: (Rand, Log, Size, Assert) ?=> Unit, plan: Plan) =
       testBuilder += TestWrapper(desc, test, plan).unsafeAssumePure
 
   val run: Run ?-> Unit =
