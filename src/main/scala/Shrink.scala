@@ -18,7 +18,7 @@ import Prompt.*
   * time of writing, there really is only one useful implementation: `Shrink.Naive`.
   */
 trait Shrink extends SharedCapability:
-  def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, testCase: FailingCase): Shrink.Result
+  def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, testCase: FailingCase): Option[Shrink.Result]
 
 object Shrink:
   // - Shrink result ---------------------------------------------------------------------------------------------------
@@ -32,7 +32,7 @@ object Shrink:
   def shrink(
       test: (Rand, Params, Size, Assert) ?=> Unit,
       testCase: FailingCase
-  ): Shrink ?->{test} Shrink.Result =
+  ): Shrink ?->{test} Option [Shrink.Result] =
     handler ?=> handler.shrink(test, testCase)
 
   // - Naive shrinking -------------------------------------------------------------------------------------------------
@@ -49,18 +49,24 @@ object Shrink:
     // most to least interesting. We'll then explore them, in that order, until we either run out of states, or find
     // a new failing one. We'll then attempt to shrink that one.
     override def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, testCase: FailingCase) =
-      def loop(states: LazyList[Rand.State], bestShrink: Shrink.Result): Shrink.Result = states match
-        case head #:: tail =>
-          Naive.runState(head, bestShrink.testCase.state.size, test) match
-            case Rand.Recorded(None, _) =>
-              loop(tail, bestShrink)
+      def loop(
+          states: LazyList[Rand.State],
+          size: Int,
+          shrinkCount: Int,
+          bestTestCase: Option[FailingCase]
+      ): Option[Shrink.Result] =
+        states match
+          case head #:: tail =>
+            Naive.runState(head, size, test) match
+              case Rand.Recorded(None, _) =>
+                loop(tail, size, shrinkCount, bestTestCase)
 
-            case Rand.Recorded(Some(e), state) =>
-              loop(shrink(state), Shrink.Result(e, bestShrink.shrinkCount + 1))
+              case Rand.Recorded(Some(testCase), state) =>
+                loop(shrink(state), testCase.state.size, shrinkCount + 1, Some(testCase))
 
-        case _ => bestShrink
+          case _ => bestTestCase.map(Shrink.Result(_, shrinkCount))
 
-      loop(shrink(testCase.state.randState), Shrink.Result(testCase, 0))
+      loop(shrink(testCase.state.randState), testCase.state.size, 0, None)
 
   object Naive:
     def shrink(state: Rand.State): Naive ?-> LazyList[Rand.State] = handler ?=> handler.shrink(state)
@@ -127,6 +133,6 @@ object Shrink:
     * much noise.
     */
   def noop[A](body: Shrink ?=> A): A =
-    given Shrink = (_, testCase) => Shrink.Result(testCase, 0)
+    given Shrink = (_, _) => None
 
     body

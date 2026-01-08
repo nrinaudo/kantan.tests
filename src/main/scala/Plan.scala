@@ -21,16 +21,18 @@ object Plan:
   /** Typical search then shrink test execution. */
   def execute(test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf)(using Shrink, Search): Run.Outcome =
 
-    def shrink(testCase: Option[FailingCase]) =
-      testCase match
-        case Some(failingCase) =>
-          val Shrink.Result(testCase, shrinkCount) = Shrink.shrink(test, failingCase)
-          Run.Result.Failure(testCase.msg, shrinkCount, testCase.state, testCase.params)
+    def shrink(testCase: FailingCase): Run.Result =
+      val Shrink.Result(shrunkTestCase, shrinkCount) = Shrink
+        .shrink(test, testCase)
+        .getOrElse(Shrink.Result(testCase, 0))
 
-        case None => Run.Result.Success
+      Run.Result.Failure(shrunkTestCase.msg, shrinkCount, shrunkTestCase.state, shrunkTestCase.params)
 
     val Search.Result(testCase, successCount) = Search.search(conf, test)
-    Run.Outcome(successCount, shrink(testCase))
+    Run.Outcome(
+      successCount,
+      testCase.map(shrink).getOrElse(Run.Result.Success)
+    )
 
   val grow: Plan =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) =>
