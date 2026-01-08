@@ -20,16 +20,17 @@ trait Plan:
 object Plan:
   /** Typical search then shrink test execution. */
   def execute(test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf)(using Shrink, Search): Run.Outcome =
-    val outcome = Search.search(conf, test)
 
-    val result = outcome.failure match
-      case Some(failure) =>
-        val shrunk = Shrink.shrink(test, failure)
-        Run.Result.Failure(shrunk.failure.msg, shrunk.shrinkCount, shrunk.failure.state, shrunk.failure.params)
+    def shrink(testCase: Option[FailingCase]) =
+      testCase match
+        case Some(failingCase) =>
+          val Shrink.Result(testCase, shrinkCount) = Shrink.shrink(test, failingCase)
+          Run.Result.Failure(testCase.msg, shrinkCount, testCase.state, testCase.params)
 
-      case None => Run.Result.Success
+        case None => Run.Result.Success
 
-    Run.Outcome(outcome.successCount, result)
+    val Search.Result(testCase, successCount) = Search.search(conf, test)
+    Run.Outcome(successCount, shrink(testCase))
 
   val grow: Plan =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) =>

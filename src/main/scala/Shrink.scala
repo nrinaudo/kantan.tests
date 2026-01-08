@@ -18,22 +18,22 @@ import Prompt.*
   * time of writing, there really is only one useful implementation: `Shrink.Naive`.
   */
 trait Shrink extends SharedCapability:
-  def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, failure: FailingCase): Shrink.Result
+  def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, testCase: FailingCase): Shrink.Result
 
 object Shrink:
   // - Shrink result ---------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   /** Contains the smallest failing test case we could find, with the number of times it was shrunk. */
-  case class Result(failure: FailingCase, shrinkCount: Int)
+  case class Result(testCase: FailingCase, shrinkCount: Int)
 
   // - Basic operations ------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   /** Shrinks the specified test failure. */
   def shrink(
       test: (Rand, Params, Size, Assert) ?=> Unit,
-      failure: FailingCase
+      testCase: FailingCase
   ): Shrink ?->{test} Shrink.Result =
-    handler ?=> handler.shrink(test, failure)
+    handler ?=> handler.shrink(test, testCase)
 
   // - Naive shrinking -------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
@@ -48,19 +48,19 @@ object Shrink:
     // The concept here is very simple: the state shrinker generates all interesting states to look at, ordered from
     // most to least interesting. We'll then explore them, in that order, until we either run out of states, or find
     // a new failing one. We'll then attempt to shrink that one.
-    override def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, failure: FailingCase) =
-      def loop(states: LazyList[Rand.State], shrunk: Shrink.Result): Shrink.Result = states match
+    override def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, testCase: FailingCase) =
+      def loop(states: LazyList[Rand.State], bestShrink: Shrink.Result): Shrink.Result = states match
         case head #:: tail =>
-          Naive.runState(head, shrunk.failure.state.size, test) match
+          Naive.runState(head, bestShrink.testCase.state.size, test) match
             case Rand.Recorded(None, _) =>
-              loop(tail, shrunk)
+              loop(tail, bestShrink)
 
             case Rand.Recorded(Some(e), state) =>
-              loop(shrink(state), Shrink.Result(e, shrunk.shrinkCount + 1))
+              loop(shrink(state), Shrink.Result(e, bestShrink.shrinkCount + 1))
 
-        case _ => shrunk
+        case _ => bestShrink
 
-      loop(shrink(failure.state.state), Shrink.Result(failure, 0))
+      loop(shrink(testCase.state.state), Shrink.Result(testCase, 0))
 
   object Naive:
     def shrink(state: Rand.State): Naive ?-> LazyList[Rand.State] = handler ?=> handler.shrink(state)
@@ -127,6 +127,6 @@ object Shrink:
     * much noise.
     */
   def noop[A](body: Shrink ?=> A): A =
-    given Shrink = (_, failure) => Shrink.Result(failure, 0)
+    given Shrink = (_, testCase) => Shrink.Result(testCase, 0)
 
     body
