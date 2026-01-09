@@ -82,15 +82,17 @@ object Search:
     given Search:
 
       // Product of the minimum value in a state and the index at which it was found. Because I hate tuples.
-      case class Min(index: Int, value: Int)
+      case class Min(index: Int, value: Int):
+        def or(newIndex: Int, newValue: Int): Min =
+          if newValue <= value then Min(newIndex, newValue)
+          else this
 
       // Finds the smallest value in the specified list of ints (right-leaning).
       def minWithIndex(is: List[Int]): Option[Min] =
         def go(i: Int, min: Min, is: List[Int]): Min =
           is match
-            case head :: tail if head <= min.value => go(i + 1, Min(i, head), tail)
-            case head :: tail                      => go(i + 1, min, tail)
-            case _                                 => min
+            case head :: tail => min.or(i, head)
+            case _            => min
 
         is match
           case head :: tail => Some(go(1, Min(0, head), tail))
