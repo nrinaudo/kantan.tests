@@ -8,7 +8,12 @@ import caps.*
 //
 // ---------------------------------------------------------------------------------------------------------------------
 
-/** Capability describing the ability to run a test. */
+/** Capability describing the ability to run a test.
+  *
+  * The test and its execution plan are separated to allow a runner, such as the one used in a `TestSuite`, to treat the
+  * plan as more of a suggestion. We could then list all declared tests and interact with them more directly, such as
+  * through a CLI, and try different search / shrink strategies.
+  */
 trait Run extends SharedCapability:
   def run(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan): Unit
 
