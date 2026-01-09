@@ -21,17 +21,20 @@ object Plan:
   /** Typical search then shrink test execution. */
   def execute(test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf)(using Shrink, Search): Run.Outcome =
 
-    def shrink(testCase: FailingCase): Run.Result =
-      val Shrink.Result(shrunkTestCase, shrinkCount) = Shrink
-        .shrink(test, testCase)
-        .getOrElse(Shrink.Result(testCase, 0))
+    def shrink(originalTestCase: FailingTestCase, originalParams: Params.Values): Run.Result =
+      val Shrink.Result(testCase, shrinkCount, params) =
+        Shrink
+          .shrink(test, originalTestCase)
+          .getOrElse(Shrink.Result(originalTestCase, 0, originalParams))
 
-      Run.Result.Failure(shrunkTestCase.msg, shrinkCount, shrunkTestCase.state, shrunkTestCase.params)
+      Run.Result.Failure(testCase.msg, shrinkCount, testCase.state, params)
 
-    val Search.Result(testCase, successCount) = Search.search(conf, test)
+    val Search.Result(testCase, successCount, params) = Search.search(conf, test)
     Run.Outcome(
       successCount,
-      testCase.map(shrink).getOrElse(Run.Result.Success)
+      testCase
+        .map(shrink(_, params))
+        .getOrElse(Run.Result.Success(params))
     )
 
   val grow: Plan =
@@ -61,8 +64,8 @@ object Plan:
       Size(state.size):
         Rand.replay(state.randState):
           runTest(test) match
-            case Params.Recorded(AssertionResult.Success, _) =>
-              Run.Outcome(1, Run.Result.Success)
+            case Params.Recorded(AssertionResult.Success, params) =>
+              Run.Outcome(1, Run.Result.Success(params))
 
             case Params.Recorded(AssertionResult.Failure(msg), params) =>
               Run.Outcome(0, Run.Result.Failure(msg, 0, state, params))

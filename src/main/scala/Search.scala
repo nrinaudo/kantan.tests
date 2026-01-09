@@ -18,7 +18,14 @@ object Search:
 
   // - Search results --------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
-  case class Result(testCase: Option[FailingCase], successCount: Int)
+  case class Result(testCase: Option[FailingTestCase], successCount: Int, params: Params.Values)
+
+  object Result:
+    def failure(msg: String, randState: Rand.State, size: Int, successCount: Int, params: Params.Values): Result =
+      Result(Some(FailingTestCase(msg, ReplayState(randState, size))), successCount, params)
+
+    def success(successCount: Int, params: Params.Values): Result =
+      Result(None, successCount, params)
 
   // - Search execution ------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
@@ -37,10 +44,10 @@ object Search:
     */
   def grow[A](body: Search ?=> A): A =
     given Search:
-      def run(size: Int, rand: Double, test: (Rand, Params, Size, Assert) ?=> Unit) =
+      def run(size: Int, randCeiling: Double, test: (Rand, Params, Size, Assert) ?=> Unit) =
         Size(size):
           Rand:
-            Rand.bound(rand.toInt):
+            Rand.bound(randCeiling.toInt):
               Rand.record:
                 runTest(test)
 
@@ -48,18 +55,18 @@ object Search:
         val sizeStep = (conf.maxSize - conf.minSize) / conf.minSuccess
         val randStep = math.pow(Int.MaxValue, 1.0 / conf.minSuccess)
 
-        def loop(count: Int, size: Int, rand: Double): Result =
-          run(size, rand, test) match
-            case Rand.Recorded(Params.Recorded(AssertionResult.Success, _), state) =>
+        def loop(successCount: Int, size: Int, randCeiling: Double): Result =
+          run(size, randCeiling, test) match
+            case Rand.Recorded(Params.Recorded(AssertionResult.Success, params), state) =>
               // If the state is empty, this is not a random-based test and there's no need to try it more than once.
               // If it *is* a random-based test, but we've ran it enough times, then the test is successful.
-              val success = state.isEmpty || count >= conf.minSuccess - 1
+              val success = state.isEmpty || successCount >= conf.minSuccess - 1
 
-              if success then Result(None, count + 1)
-              else loop(count + 1, size + sizeStep, rand * randStep)
+              if success then Result.success(successCount + 1, params)
+              else loop(successCount + 1, size + sizeStep, randCeiling * randStep)
 
-            case Rand.Recorded(Params.Recorded(AssertionResult.Failure(msg), params), state) =>
-              Result(Some(FailingCase(msg, ReplayState(state, size), params)), count)
+            case Rand.Recorded(Params.Recorded(AssertionResult.Failure(msg), params), randState) =>
+              Result.failure(msg, randState, size, successCount, params)
 
         loop(0, conf.minSize, randStep)
 
@@ -129,15 +136,15 @@ object Search:
         @annotation.tailrec
         def loop(count: Int, state: Rand.State): Result =
           run(state) match
-            case Rand.Recorded(Params.Recorded(AssertionResult.Success, _), state) =>
-              if count >= conf.minSuccess - 1 then Result(None, count + 1)
+            case Rand.Recorded(Params.Recorded(AssertionResult.Success, params), state) =>
+              if count >= conf.minSuccess - 1 then Result(None, count + 1, params)
               else
                 nextState(state) match
                   case Some(state) => loop(count + 1, state)
-                  case None        => Result(None, count + 1)
+                  case None        => Result.success(count + 1, params)
 
             case Rand.Recorded(Params.Recorded(AssertionResult.Failure(msg), params), state) =>
-              Result(Some(FailingCase(msg, ReplayState(state, conf.maxSize), params)), count)
+              Result.failure(msg, state, conf.maxSize, count, params)
 
         loop(0, Rand.State())
 

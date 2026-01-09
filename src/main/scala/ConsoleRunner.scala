@@ -18,7 +18,7 @@ class ConsoleRunner(conf: Conf) extends Run:
         print(Console.YELLOW)
         println(s"* [SKIPPED] $name ($count successful attempt(s))")
 
-      case Outcome(count, Result.Success) =>
+      case Outcome(count, Result.Success(params)) =>
         print(Console.GREEN)
         println(s"* $name ($count successful attempt(s))")
 

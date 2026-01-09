@@ -18,7 +18,7 @@ object Run:
   case class Outcome(successCount: Int, result: Result)
 
   enum Result:
-    case Success
+    case Success(params: Params.Values)
     case Failure(msg: String, shrinkCount: Int, replay: ReplayState, params: Params.Values)
     case Skipped(msg: String)
 

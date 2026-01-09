@@ -18,20 +18,22 @@ import Prompt.*
   * time of writing, there really is only one useful implementation: `Shrink.Naive`.
   */
 trait Shrink extends SharedCapability:
-  def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, testCase: FailingCase): Option[Shrink.Result]
+  def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, testCase: FailingTestCase): Option[Shrink.Result]
 
 object Shrink:
   // - Shrink result ---------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   /** Contains the smallest failing test case we could find, with the number of times it was shrunk. */
-  case class Result(testCase: FailingCase, shrinkCount: Int)
+  case class Result(testCase: FailingTestCase, shrinkCount: Int, params: Params.Values):
+    def incrementShrink: Result =
+      copy(shrinkCount = shrinkCount + 1)
 
   // - Basic operations ------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   /** Shrinks the specified test failure. */
   def shrink(
       test: (Rand, Params, Size, Assert) ?=> Unit,
-      testCase: FailingCase
+      testCase: FailingTestCase
   ): Shrink ?->{test} Option [Shrink.Result] =
     handler ?=> handler.shrink(test, testCase)
 
@@ -48,25 +50,28 @@ object Shrink:
     // The concept here is very simple: the state shrinker generates all interesting states to look at, ordered from
     // most to least interesting. We'll then explore them, in that order, until we either run out of states, or find
     // a new failing one. We'll then attempt to shrink that one.
-    override def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, testCase: FailingCase) =
+    override def shrink(test: (Rand, Params, Size, Assert) ?=> Unit, testCase: FailingTestCase) =
       def loop(
           states: LazyList[Rand.State],
           size: Int,
-          shrinkCount: Int,
-          bestTestCase: Option[FailingCase]
+          bestResult: Option[Result]
       ): Option[Shrink.Result] =
         states match
           case head #:: tail =>
             Naive.runState(head, size, test) match
               case Rand.Recorded(None, _) =>
-                loop(tail, size, shrinkCount, bestTestCase)
+                loop(tail, size, bestResult)
 
-              case Rand.Recorded(Some(testCase), state) =>
-                loop(shrink(state), testCase.state.size, shrinkCount + 1, Some(testCase))
+              case Rand.Recorded(Some(result), state) =>
+                loop(
+                  shrink(state),
+                  result.testCase.state.size,
+                  Some(result.incrementShrink)
+                )
 
-          case _ => bestTestCase.map(Shrink.Result(_, shrinkCount))
+          case _ => bestResult
 
-      loop(shrink(testCase.state.randState), testCase.state.size, 0, None)
+      loop(shrink(testCase.state.randState), testCase.state.size, None)
 
   object Naive:
     def shrink(state: Rand.State): Naive ?-> LazyList[Rand.State] = handler ?=> handler.shrink(state)
@@ -81,7 +86,7 @@ object Shrink:
         state: Rand.State,
         size: Int,
         test: (Rand, Params, Size, Assert) ?=> Unit
-    ): Rand.Recorded[Option[FailingCase]] =
+    ): Rand.Recorded[Option[Result]] =
       Size(size):
         Rand.replay(state):
           Rand
@@ -89,7 +94,7 @@ object Shrink:
             .map:
               case Params.Recorded(AssertionResult.Success, _)           => None
               case Params.Recorded(AssertionResult.Failure(msg), params) =>
-                Some(FailingCase(msg, ReplayState(state, size), params))
+                Some(Result(FailingTestCase(msg, ReplayState(state, size)), 1, params))
 
     /** Adds an LRU-cache to an existing naive shrinker, to avoid revisiting known states. */
     def caching[A](maxSize: Int)(body: Naive ?=> A): Naive ?->{body} A = handler ?=>

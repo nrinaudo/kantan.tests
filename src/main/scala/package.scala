@@ -36,7 +36,5 @@ case class Conf(minSuccess: Int, minSize: Int, maxSize: Int)
   *   message with which the test failed.
   * @param state
   *   how to replay the failing test case, using for example `Prompt.replay`.
-  * @param params
-  *   parameters (declared with `Params`) that caused the test to fail.
   */
-case class FailingCase(msg: String, state: ReplayState, params: Params.Values)
+case class FailingTestCase(msg: String, state: ReplayState)
