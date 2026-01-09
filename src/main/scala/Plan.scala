@@ -18,6 +18,8 @@ trait Plan:
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) => execute(test, f(conf))
 
 object Plan:
+  // - Standard plan ----------------------------------------------------------------------------------------------------
+  // --------------------------------------------------------------------------------------------------------------------
   /** Typical search then shrink test execution. */
   def execute(test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf)(using Shrink, Search): TestResult =
 
@@ -38,6 +40,8 @@ object Plan:
 
     TestResult(successCount, params, status)
 
+  // - Grow plans -------------------------------------------------------------------------------------------------------
+  // --------------------------------------------------------------------------------------------------------------------
   val grow: Plan =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) =>
       Search.grow:
@@ -51,12 +55,16 @@ object Plan:
         Shrink.noop:
           execute(test, conf)
 
+  // - Enumeration plans ------------------------------------------------------------------------------------------------
+  // --------------------------------------------------------------------------------------------------------------------
   val enumerate: Plan =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) =>
       Shrink.noop:
         Search.enumerate:
           execute(test, conf)
 
+  // - "Administrative" plans -------------------------------------------------------------------------------------------
+  // --------------------------------------------------------------------------------------------------------------------
   def ignore(msg: String): Plan =
     (_: (Rand, Params, Size, Assert) ?=> Unit, _: Conf) => TestResult.skipped(msg)
 
