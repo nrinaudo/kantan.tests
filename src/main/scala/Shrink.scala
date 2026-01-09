@@ -2,6 +2,7 @@ package kantan.tests
 
 import caps.*
 import Prompt.*
+import java.util.{LinkedHashMap, Map as JavaMap}
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
@@ -27,6 +28,18 @@ object Shrink:
   case class Result(testCase: FailingTestCase, shrinkCount: Int, params: Params.Values):
     def incrementShrink: Result =
       copy(shrinkCount = shrinkCount + 1)
+
+  object Result:
+    def failure: Option[Result] = None
+
+    def success(
+        msg: String,
+        randState: Rand.State,
+        size: Int,
+        shrinkCount: Int,
+        params: Params.Values
+    ): Option[Result] =
+      Some(Result(FailingTestCase(msg, ReplayState(randState, size)), 1, params))
 
   // - Basic operations ------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
@@ -57,14 +70,14 @@ object Shrink:
           bestResult: Option[Result]
       ): Option[Shrink.Result] =
         states match
-          case head #:: tail =>
-            Naive.runState(head, size, test) match
+          case state #:: remaining =>
+            Naive.runState(state, size, test) match
               case Rand.Recorded(None, _) =>
-                loop(tail, size, bestResult)
+                loop(remaining, size, bestResult)
 
-              case Rand.Recorded(Some(result), state) =>
+              case Rand.Recorded(Some(result), newState) =>
                 loop(
-                  shrink(state),
+                  shrink(newState),
                   result.testCase.state.size,
                   Some(result.incrementShrink)
                 )
@@ -92,14 +105,14 @@ object Shrink:
           Rand
             .record(runTest(test))
             .map:
-              case Params.Recorded(AssertionResult.Success, _)           => None
+              case Params.Recorded(AssertionResult.Success, _)           => Result.failure
               case Params.Recorded(AssertionResult.Failure(msg), params) =>
-                Some(Result(FailingTestCase(msg, ReplayState(state, size)), 1, params))
+                Result.success(msg, state, size, 1, params)
 
     /** Adds an LRU-cache to an existing naive shrinker, to avoid revisiting known states. */
     def caching[A](maxSize: Int)(body: Naive ?=> A): Naive ?->{body} A = handler ?=>
-      val cache = new java.util.LinkedHashMap[Rand.State, Unit](16, 0.75, true):
-        override def removeEldestEntry(eldest: java.util.Map.Entry[Rand.State, Unit]) = size > maxSize
+      val cache = new LinkedHashMap[Rand.State, Unit](16, 0.75, true):
+        override def removeEldestEntry(eldest: JavaMap.Entry[Rand.State, Unit]) = size > maxSize
 
       def isNew(state: Rand.State) =
         if cache.containsKey(state) then false
@@ -138,6 +151,6 @@ object Shrink:
     * much noise.
     */
   def noop[A](body: Shrink ?=> A): A =
-    given Shrink = (_, _) => None
+    given Shrink = (_, _) => Result.failure
 
     body
