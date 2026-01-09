@@ -12,30 +12,31 @@ package kantan.tests
   * You're encouraged to experiment with weirder plans though, that is the reason for the existence of `Plan`.
   */
 trait Plan:
-  def execute(test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf): Run.Outcome
+  def execute(test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf): TestResult
 
   def mapConf(f: Conf => Conf): Plan^{this, f} =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) => execute(test, f(conf))
 
 object Plan:
   /** Typical search then shrink test execution. */
-  def execute(test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf)(using Shrink, Search): Run.Outcome =
+  def execute(test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf)(using Shrink, Search): TestResult =
 
-    def shrink(originalTestCase: FailingTestCase, originalParams: Params.Values): Run.Result =
+    // Shrinks a known failing test case and returns the resulting test status.
+    def shrink(originalTestCase: FailingTestCase, originalParams: Params.Values): TestResult.Status =
       val Shrink.Result(testCase, shrinkCount, params) =
         Shrink
           .shrink(test, originalTestCase)
           .getOrElse(Shrink.Result(originalTestCase, 0, originalParams))
 
-      Run.Result.Failure(testCase.msg, shrinkCount, testCase.state, params)
+      TestResult.Status.Failure(testCase.msg, shrinkCount, testCase.state)
 
+    // Searches for a failing test case, then attempts to shrink it.
     val Search.Result(testCase, successCount, params) = Search.search(conf, test)
-    Run.Outcome(
-      successCount,
-      testCase
-        .map(shrink(_, params))
-        .getOrElse(Run.Result.Success(params))
-    )
+    val status                                        = testCase
+      .map(shrink(_, params))
+      .getOrElse(TestResult.Status.Success)
+
+    TestResult(successCount, params, status)
 
   val grow: Plan =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) =>
@@ -57,7 +58,7 @@ object Plan:
           execute(test, conf)
 
   def ignore(msg: String): Plan =
-    (_: (Rand, Params, Size, Assert) ?=> Unit, _: Conf) => Run.Outcome(0, Run.Result.Skipped(msg))
+    (_: (Rand, Params, Size, Assert) ?=> Unit, _: Conf) => TestResult.skipped(msg)
 
   def replay(state: ReplayState): Plan =
     (test: (Rand, Params, Size, Assert) ?=> Unit, conf: Conf) =>
@@ -65,7 +66,7 @@ object Plan:
         Rand.replay(state.randState):
           runTest(test) match
             case Params.Recorded(AssertionResult.Success, params) =>
-              Run.Outcome(1, Run.Result.Success(params))
+              TestResult.success(0, params)
 
             case Params.Recorded(AssertionResult.Failure(msg), params) =>
-              Run.Outcome(0, Run.Result.Failure(msg, 0, state, params))
+              TestResult.failure(0, params, msg, 0, state)

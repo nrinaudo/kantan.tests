@@ -18,15 +18,6 @@ trait Run extends SharedCapability:
   def run(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan): Unit
 
 object Run:
-  // - Test results ----------------------------------------------------------------------------------------------------
-  // -------------------------------------------------------------------------------------------------------------------
-  case class Outcome(successCount: Int, result: Result)
-
-  enum Result:
-    case Success(params: Params.Values)
-    case Failure(msg: String, shrinkCount: Int, replay: ReplayState, params: Params.Values)
-    case Skipped(msg: String)
-
   // - Run DSL ---------------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
   def run(desc: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan): Run ?->{test} Unit =

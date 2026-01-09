@@ -1,7 +1,5 @@
 package kantan.tests
 
-import Run.*
-
 // ---------------------------------------------------------------------------------------------------------------------
 //
 // Basic `Run`.
@@ -14,17 +12,18 @@ import Run.*
 class ConsoleRunner(conf: Conf) extends Run:
   override def run(name: String, test: (Rand, Params, Size, Assert) ?=> Unit, plan: Plan) =
     plan.execute(test, conf) match
-      case Outcome(count, Result.Skipped(msg)) =>
+      case TestResult.Skipped(msg) =>
         print(Console.YELLOW)
-        println(s"* [SKIPPED] $name ($count successful attempt(s))")
+        println(s"* [SKIPPED] $name")
+        println(s"  Message:  $msg")
 
-      case Outcome(count, Result.Success(params)) =>
+      case TestResult.Ran(successCount, params, TestResult.Status.Success) =>
         print(Console.GREEN)
-        println(s"* $name ($count successful attempt(s))")
+        println(s"* $name (successCount successful attempt(s))")
 
-      case Outcome(count, Result.Failure(msg, shrinkCount, replay, params)) =>
+      case TestResult.Ran(successCount, params, TestResult.Status.Failure(msg, shrinkCount, replay)) =>
         print(Console.RED)
-        println(s"* $name ($count successful attempt(s))")
+        println(s"* $name ($successCount successful attempt(s))")
         println(s"  Error: $msg")
         if params.values.nonEmpty then
           println(s"  Parameters (shrunk $shrinkCount time(s)):")
