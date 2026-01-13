@@ -13,7 +13,7 @@ import scala.caps.unsafe.unsafeAssumePure
 // ---------------------------------------------------------------------------------------------------------------------
 
 /** Internal exception used to "jump" back to the specified `Assert` */
-private case class Error(label: Assert^{}, message: String) extends ControlThrowable with NoStackTrace
+private case class AssertionFailure(label: Assert^{}, message: String) extends ControlThrowable with NoStackTrace
 
 /** Result of an assertion block. */
 enum AssertionResult:
@@ -24,21 +24,21 @@ enum AssertionResult:
 sealed abstract class Assert extends SharedCapability
 
 object Assert:
-  /** Runs the specified body, turning errors in `Assertion.Failure`. */
+  /** Runs the specified body, turning errors into `Assertion.Failure`s. */
   def apply(body: Assert ?=> Unit): AssertionResult =
-    given handler: Assert = new Assert {}
+    given label: Assert = new Assert {}
 
     try
       body
       AssertionResult.Success
     catch
-      case Error(`handler`, message) => AssertionResult.Failure(message)
-      case e: Error                  => throw e
-      case e                         => AssertionResult.Failure(e.getMessage)
+      case AssertionFailure(`label`, message) => AssertionResult.Failure(message)
+      case e: AssertionFailure                => throw e
+      case e                                  => AssertionResult.Failure(e.getMessage)
 
-  /** Fails with the specified message, jumping back to the specified `Assert`. */
+  /** Fails with the specified message, jumping back to label denoted by whatever `Assert` handler is used. */
   def fail(msg: String): Assert ?-> Nothing =
-    handler ?=> throw Error(handler.unsafeAssumePure, msg)
+    label ?=> throw AssertionFailure(label.unsafeAssumePure, msg)
 
   def assert(b: Boolean): Assert ?-> Unit =
     assert(b, "Assertion did not hold")
