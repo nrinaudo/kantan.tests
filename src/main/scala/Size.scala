@@ -29,5 +29,22 @@ object Size:
 
     body
 
-  val size: Size ?-> Int            = s ?=> s.get
-  def resize(i: Int): Size ?-> Unit = s ?=> s.set(math.max(0, i))
+    /** Queries the current size. */
+  val size: Size ?-> Int = handler ?=> handler.get
+
+  /** Updates the current size.
+    *
+    * Note that you sometimes want to update the size _for a group of statements only_. In that case, it's better to use
+    * `Size.fork`.
+    */
+  def size_=(s: Int): Size ?-> Unit = handler ?=> handler.set(math.max(0, s))
+
+  /** Runs the specified effectful computation, allowing it to modify the size at will, but restores it to its initial
+    * value when done.
+    */
+  def fork[A](body: Size ?=> A): Size ?->{body} A =
+    val oldSize = size
+    val result  = body
+
+    size = oldSize
+    result

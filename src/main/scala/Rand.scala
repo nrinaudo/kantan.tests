@@ -148,6 +148,7 @@ object Rand:
 
     (head :: tail).mkString
 
-  def resize[A](size: Int, content: (Rand, Size) ?=> A): (Rand, Size) ?->{content} A =
-    Size(size):
+  def resize[A](s: Int, content: (Rand, Size) ?=> A): (Rand, Size) ?->{content} A =
+    Size.fork:
+      Size.size = s
       content
