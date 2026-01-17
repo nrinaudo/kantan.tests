@@ -12,16 +12,16 @@ package kantan.tests
   * You're encouraged to experiment with weirder plans though, that is the reason for the existence of `Plan`.
   */
 trait Plan:
-  def execute(test: (Rand, Log, Size, Assert) ?=> Unit, conf: Conf): TestResult
+  def execute(test: (Assert, Log, Rand, Size) ?=> Unit, conf: Conf): TestResult
 
   def mapConf(f: Conf => Conf): Plan^{this, f} =
-    (test: (Rand, Log, Size, Assert) ?=> Unit, conf: Conf) => execute(test, f(conf))
+    (test: (Assert, Log, Rand, Size) ?=> Unit, conf: Conf) => execute(test, f(conf))
 
 object Plan:
   // - Standard plan ----------------------------------------------------------------------------------------------------
   // --------------------------------------------------------------------------------------------------------------------
   /** Typical search then shrink test execution. */
-  def execute(test: (Rand, Log, Size, Assert) ?=> Unit, conf: Conf)(using Shrink, Search): TestResult =
+  def execute(test: (Assert, Log, Rand, Size) ?=> Unit, conf: Conf)(using Shrink, Search): TestResult =
 
     // Shrinks a known failing test case and returns the resulting test status.
     def shrink(
@@ -44,14 +44,14 @@ object Plan:
   // - Grow plans -------------------------------------------------------------------------------------------------------
   // --------------------------------------------------------------------------------------------------------------------
   val grow: Plan =
-    (test: (Rand, Log, Size, Assert) ?=> Unit, conf: Conf) =>
+    (test: (Assert, Log, Rand, Size) ?=> Unit, conf: Conf) =>
       Search.grow:
         Shrink.Naive:
           Shrink.Naive.caching(1000):
             execute(test, conf)
 
   val growNoShrink: Plan =
-    (test: (Rand, Log, Size, Assert) ?=> Unit, conf: Conf) =>
+    (test: (Assert, Log, Rand, Size) ?=> Unit, conf: Conf) =>
       Search.grow:
         Shrink.noop:
           execute(test, conf)
@@ -59,7 +59,7 @@ object Plan:
   // - Enumeration plans ------------------------------------------------------------------------------------------------
   // --------------------------------------------------------------------------------------------------------------------
   val enumerate: Plan =
-    (test: (Rand, Log, Size, Assert) ?=> Unit, conf: Conf) =>
+    (test: (Assert, Log, Rand, Size) ?=> Unit, conf: Conf) =>
       Shrink.noop:
         Search.enumerate:
           execute(test, conf)
@@ -67,10 +67,10 @@ object Plan:
   // - "Administrative" plans -------------------------------------------------------------------------------------------
   // --------------------------------------------------------------------------------------------------------------------
   def ignore(msg: String): Plan =
-    (_: (Rand, Log, Size, Assert) ?=> Unit, _: Conf) => TestResult.Skipped(msg)
+    (_: (Assert, Log, Rand, Size) ?=> Unit, _: Conf) => TestResult.Skipped(msg)
 
   def replay(state: ReplayState): Plan =
-    (test: (Rand, Log, Size, Assert) ?=> Unit, conf: Conf) =>
+    (test: (Assert, Log, Rand, Size) ?=> Unit, conf: Conf) =>
       Size(state.size):
         Rand.replay(state.randState):
           runTest(test) match

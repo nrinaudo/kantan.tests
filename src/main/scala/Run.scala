@@ -15,10 +15,10 @@ import caps.*
   * through a CLI, and try different search / shrink strategies.
   */
 trait Run extends SharedCapability:
-  def run(desc: String, test: (Rand, Log, Size, Assert) ?=> Unit, plan: Plan): Unit
+  def run(desc: String, test: (Assert, Log, Rand, Size) ?=> Unit, plan: Plan): Unit
 
 object Run:
   // - Run DSL ---------------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
-  def run(desc: String, test: (Rand, Log, Size, Assert) ?=> Unit, plan: Plan): Run ?->{test} Unit =
+  def run(desc: String, test: (Assert, Log, Rand, Size) ?=> Unit, plan: Plan): Run ?->{test} Unit =
     handler ?=> handler.run(desc, test, plan)

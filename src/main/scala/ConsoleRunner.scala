@@ -10,7 +10,7 @@ package kantan.tests
 
 /** Simple runner that reports tests to the standard output. */
 class ConsoleRunner(conf: Conf) extends Run:
-  override def run(name: String, test: (Rand, Log, Size, Assert) ?=> Unit, plan: Plan) =
+  override def run(name: String, test: (Assert, Log, Rand, Size) ?=> Unit, plan: Plan) =
     plan.execute(test, conf) match
       case TestResult.Skipped(msg) =>
         print(Console.YELLOW)

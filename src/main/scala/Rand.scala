@@ -138,7 +138,7 @@ object Rand:
 
     builder.result
 
-  def list[A](content: Rand ?=> A): (Size, Rand) ?->{content} List [A] =
+  def list[A](content: Rand ?=> A): (Rand, Size) ?->{content} List [A] =
     listOf(size, content)
 
   val identifier: (Size, Rand) ?-> String =

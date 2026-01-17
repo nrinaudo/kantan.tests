@@ -19,7 +19,7 @@ import java.util.{LinkedHashMap, Map as JavaMap}
   * time of writing, there really is only one useful implementation: `Shrink.Naive`.
   */
 trait Shrink extends SharedCapability:
-  def shrink(test: (Rand, Log, Size, Assert) ?=> Unit, testCase: FailingTestCase): Option[Shrink.Result]
+  def shrink(test: (Assert, Log, Rand, Size) ?=> Unit, testCase: FailingTestCase): Option[Shrink.Result]
 
 object Shrink:
   // - Shrink result ---------------------------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ object Shrink:
   // -------------------------------------------------------------------------------------------------------------------
   /** Shrinks the specified test failure. */
   def shrink(
-      test: (Rand, Log, Size, Assert) ?=> Unit,
+      test: (Assert, Log, Rand, Size) ?=> Unit,
       testCase: FailingTestCase
   ): Shrink ?->{test} Option [Shrink.Result] =
     handler ?=> handler.shrink(test, testCase)
@@ -66,7 +66,7 @@ object Shrink:
     // The concept here is very simple: the state shrinker generates all interesting states to look at, ordered from
     // most to least interesting. We'll then explore them, in that order, until we either run out of states, or find
     // a new failing one. We'll then attempt to shrink that one.
-    override def shrink(test: (Rand, Log, Size, Assert) ?=> Unit, testCase: FailingTestCase) =
+    override def shrink(test: (Assert, Log, Rand, Size) ?=> Unit, testCase: FailingTestCase) =
       def loop(
           states: LazyList[Rand.State],
           size: Int,
@@ -101,7 +101,7 @@ object Shrink:
     def runState(
         state: Rand.State,
         size: Int,
-        test: (Rand, Log, Size, Assert) ?=> Unit
+        test: (Assert, Log, Rand, Size) ?=> Unit
     ): Rand.Recorded[Option[Result]] =
       Size(size):
         Rand.replay(state):

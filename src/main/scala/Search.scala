@@ -12,7 +12,7 @@ import caps.*
 // ---------------------------------------------------------------------------------------------------------------------
 /** Describes the ability to search for a failing test case for a given test. */
 trait Search extends SharedCapability:
-  def search(conf: Conf, test: (Rand, Log, Size, Assert) ?=> Unit): Search.Result
+  def search(conf: Conf, test: (Assert, Log, Rand, Size) ?=> Unit): Search.Result
 
 object Search:
 
@@ -36,7 +36,7 @@ object Search:
 
   // - Search execution ------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
-  def search(conf: Conf, test: (Rand, Log, Size, Assert) ?=> Unit): Search ?->{test} Result =
+  def search(conf: Conf, test: (Assert, Log, Rand, Size) ?=> Unit): Search ?->{test} Result =
     handler ?=> handler.search(conf, test)
 
   // - Test case growth ------------------------------------------------------------------------------------------------
@@ -51,14 +51,14 @@ object Search:
     */
   def grow[A](body: Search ?=> A): A =
     given Search:
-      def run(size: Int, randCeiling: Double, test: (Rand, Log, Size, Assert) ?=> Unit) =
+      def run(size: Int, randCeiling: Double, test: (Assert, Log, Rand, Size) ?=> Unit) =
         Size(size):
           Rand:
             Rand.bound(randCeiling.toInt):
               Rand.record:
                 runTest(test)
 
-      override def search(conf: Conf, test: (Rand, Log, Size, Assert) ?=> Unit) =
+      override def search(conf: Conf, test: (Assert, Log, Rand, Size) ?=> Unit) =
         val sizeStep = (conf.maxSize - conf.minSize) / conf.minSuccess
         val randStep = math.pow(Int.MaxValue, 1.0 / conf.minSuccess)
 
@@ -122,7 +122,7 @@ object Search:
           .map: min =>
             Rand.State(values.updated(min.index, min.value + 1))
 
-      override def search(conf: Conf, test: (Rand, Log, Size, Assert) ?=> Unit) =
+      override def search(conf: Conf, test: (Assert, Log, Rand, Size) ?=> Unit) =
         // Runs the test using the specified state.
         // Note how we use `conf.maxSize` for size. This is a bit of a hack, and there must be a way of starting from
         // the min size and increasing that based on some criteria. But, for the time being, it's better to make the
