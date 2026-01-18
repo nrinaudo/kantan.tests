@@ -131,12 +131,7 @@ object Rand:
   val size: (Size, Rand) ?-> Int = int(Size.size)
 
   def listOf[A](length: Int, content: Rand ?=> A): Rand ?->{content} List [A] =
-    val builder = List.newBuilder[A]
-
-    (0 until length).foreach: _ =>
-      builder += content
-
-    builder.result
+    List.fill(length)(content)
 
   def list[A](content: Rand ?=> A): (Rand, Size) ?->{content} List [A] =
     listOf(size, content)
