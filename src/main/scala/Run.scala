@@ -20,5 +20,5 @@ trait Run extends SharedCapability:
 object Run:
   // - Run DSL ---------------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
-  def run(desc: String, test: (Assert, Log, Rand, Size) ?=> Unit, plan: Plan): Run ?->{test} Unit =
-    handler ?=> handler.run(desc, test, plan)
+  def run(desc: String, test: (Assert, Log, Rand, Size) ?=> Unit, plan: Plan)(using handler: Run): Unit =
+    handler.run(desc, test, plan)

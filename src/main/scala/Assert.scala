@@ -37,16 +37,16 @@ object Assert:
       case e                                  => AssertionResult.Failure(e.getMessage)
 
   /** Fails with the specified message, jumping back to label denoted by whatever `Assert` handler is used. */
-  def fail(msg: String): Assert ?-> Nothing =
-    label ?=> throw AssertionFailure(label.unsafeAssumePure, msg)
+  def fail(msg: String)(using label: Assert): Nothing =
+    throw AssertionFailure(label.unsafeAssumePure, msg)
 
-  def assert(b: Boolean): Assert ?-> Unit =
+  def assert(b: Boolean)(using Assert): Unit =
     assert(b, "Assertion did not hold")
 
   /** Fails with the specified message if `b` is `false`. */
-  def assert(b: Boolean, msg: String): Assert ?-> Unit =
+  def assert(b: Boolean, msg: String)(using Assert): Unit =
     if b then ()
     else fail(msg)
 
-  def assertEquals[A](lhs: A, rhs: A): Assert ?-> Unit =
+  def assertEquals[A](lhs: A, rhs: A)(using Assert): Unit =
     assert(lhs == rhs, s"$lhs was not equal to $rhs")

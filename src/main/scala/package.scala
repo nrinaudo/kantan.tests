@@ -14,7 +14,7 @@ package kantan.tests
   */
 private[tests] def runTest(
     test: (Assert, Log, Rand, Size) ?=> Unit
-): (Rand, Size) ?->{test} Log.Recorded [AssertionResult] =
+)(using Rand, Size): Log.Recorded[AssertionResult] =
   Log:
     Assert:
       test

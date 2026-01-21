@@ -13,7 +13,7 @@ import collection.mutable.Builder
 
 /** Stores calls to `Run.run` in order to run them later. */
 private class TestWrapper(desc: String, test: (Assert, Log, Rand, Size) ?=> Unit, plan: Plan):
-  val run: Run ?->{test} Unit =
+  def run(using Run): Unit =
     Run.run(desc, test, plan)
 
 /** Set of tests, conventionally related to the same feature.
@@ -32,6 +32,6 @@ trait TestSuite:
     override def run(desc: String, test: (Assert, Log, Rand, Size) ?=> Unit, plan: Plan) =
       testBuilder += TestWrapper(desc, test, plan).unsafeAssumePure
 
-  val run: Run ?-> Unit =
+  def run(using Run): Unit =
     testBuilder.result.foreach: test =>
       test.run

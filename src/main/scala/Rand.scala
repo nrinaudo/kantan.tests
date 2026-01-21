@@ -40,7 +40,7 @@ object Rand:
     *
     * This is useful to limit the size of generated test cases, for example.
     */
-  def bound[A](upper: Int)(body: Rand ?=> A): Rand ?->{body} A = handler ?=>
+  def bound[A](upper: Int)(body: Rand ?=> A)(using handler: Rand): A =
     given Rand = (max: Int) => handler.nextInt(math.min(upper, max))
 
     body
@@ -65,11 +65,11 @@ object Rand:
     *
     * This is particularly useful for test case reduction.
     */
-  def record[A](body: Rand ?=> A): Rand ?->{body} Recorded [A] = r ?=>
+  def record[A](body: Rand ?=> A)(using handler: Rand): Recorded[A] =
     val state = List.newBuilder[Int]
 
     given Rand = (max: Int) =>
-      val value = r.nextInt(max)
+      val value = handler.nextInt(max)
       state += value
       value
 
@@ -100,50 +100,50 @@ object Rand:
 
 // - Basic generators --------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
+  def int(max: Int)(using handler: Rand): Int = handler.nextInt(math.max(0, max))
 
-  def int(max: Int): Rand ?-> Int =
-    rand ?=> rand.nextInt(math.max(0, max))
-
-  def range(min: Int, max: Int): Rand ?-> Int =
+  def range(min: Int, max: Int)(using Rand): Int =
     int(max - min) + min
 
-  val boolean: Rand ?-> Boolean =
+  def boolean(using Rand): Boolean =
     int(2) == 1
 
-  def range(min: Char, max: Char): Rand ?-> Char =
+  def range(min: Char, max: Char)(using Rand): Char =
     range(min.toInt, max.toInt).toChar
 
-  val lowerAscii: Rand ?-> Char =
+  def lowerAscii(using Rand): Char =
     range('a', 'z')
 
-  val upperAscii: Rand ?-> Char =
+  def upperAscii(using Rand): Char =
     range('A', 'Z')
 
-  val digit: Rand ?-> Char =
+  def digit(using Rand): Char =
     range('0', '9')
 
-  def oneOf[A, Tail ^](head: Rand ?=> A, tail: (Rand ?->{Tail} A)*): Rand ?->{head, Tail} A =
+  // Note that `tail` is a vararg of context functions rather than by-names, because you apparently cannot take
+  // by-names as varargs...
+  def oneOf[A](head: => A, tail: (Rand ?=> A)*)(using Rand): A =
     val index = int(tail.length)
 
     if index == 0 then head
     else tail(index - 1)
 
-  val size: (Size, Rand) ?-> Int = int(Size.size)
+  def size(using Rand, Size): Int = int(Size.size)
 
-  def listOf[A](length: Int, content: Rand ?=> A): Rand ?->{content} List [A] =
+  def listOf[A](length: Int, content: => A)(using Rand): List[A] =
     List.fill(length)(content)
 
-  def list[A](content: Rand ?=> A): (Rand, Size) ?->{content} List [A] =
+  def list[A](content: => A)(using Rand, Size): List[A] =
     listOf(size, content)
 
-  val identifier: (Size, Rand) ?-> String =
+  def identifier(using Rand, Size): String =
     // Always generate the things with the most influence earlier, as it helps with shrinking.
     val tail = listOf(int(Size.size - 1), oneOf(lowerAscii, upperAscii, digit, '_'))
     val head = oneOf(lowerAscii, upperAscii, '_')
 
     (head :: tail).mkString
 
-  def resize[A](s: Int, content: (Rand, Size) ?=> A): (Rand, Size) ?->{content} A =
+  def resize[A](s: Int, content: => A)(using Rand, Size): A =
     Size.fork:
       Size.size = s
       content

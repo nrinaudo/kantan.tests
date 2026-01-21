@@ -11,27 +11,27 @@ package kantan.tests
 // ---------------------------------------------------------------------------------------------------------------------
 
 object Prompt:
-  def test(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit): Run ?->{body} Unit =
+  def test(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
     grow(desc)(body)
 
   object grow:
-    def apply(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit): Run ?->{body} Unit =
+    def apply(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
       Run.run(desc, body, Plan.grow)
 
-    def noShrink(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit): Run ?->{body} Unit =
+    def noShrink(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
       Run.run(desc, body, Plan.growNoShrink)
 
-  def enumerate(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit): Run ?->{body} Unit =
+  def enumerate(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
     Run.run(desc, body, Plan.enumerate)
 
-  def ignore(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit): Run ?->{body} Unit =
+  def ignore(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
     Run.run(desc, body, Plan.ignore("Test marked as ignored"))
 
     /** Runs the specified test exactly once, ignoring configuration and using the specified parameters instead.
       *
       * This is intended to easily replay failing test cases.
       */
-  def replay(desc: String)(state: ReplayState)(test: (Assert, Log, Rand, Size) ?=> Unit): Run ?->{test} Unit =
+  def replay(desc: String)(state: ReplayState)(test: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
     Run.run(desc, test, Plan.replay(state))
 
   /** Runs the specified test exactly once, ignoring configuration and using the state denoted by the specified string.
@@ -41,7 +41,7 @@ object Prompt:
     *  Replay: H4sIAAAAAAAA_2JgAANGEAEAAAD__w==
     * }}}
     */
-  def replay(desc: String)(state: String)(test: (Assert, Log, Rand, Size) ?=> Unit): Run ?->{test} Unit =
+  def replay(desc: String)(state: String)(test: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
     ReplayState.decode(state) match
       case None        => Run.run(desc, test, Plan.ignore("Failed to decode replay state"))
       case Some(state) => replay(desc)(state)(test)

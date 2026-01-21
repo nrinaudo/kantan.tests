@@ -50,8 +50,8 @@ object Shrink:
   def shrink(
       test: (Assert, Log, Rand, Size) ?=> Unit,
       testCase: FailingTestCase
-  ): Shrink ?->{test} Option [Shrink.Result] =
-    handler ?=> handler.shrink(test, testCase)
+  )(using handler: Shrink): Option[Shrink.Result] =
+    handler.shrink(test, testCase)
 
   // - Naive shrinking -------------------------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------------------------------------------
@@ -90,7 +90,7 @@ object Shrink:
       loop(shrink(testCase.state.randState), testCase.state.size, None)
 
   object Naive:
-    def shrink(state: Rand.State): Naive ?-> LazyList[Rand.State] = handler ?=> handler.shrink(state)
+    def shrink(state: Rand.State)(using handler: Naive): LazyList[Rand.State] = handler.shrink(state)
 
     // - Helpers ---------------------------------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------------------------------------------
@@ -113,7 +113,7 @@ object Shrink:
                 Result.success(msg, state, size, 1, inputs, logs)
 
     /** Adds an LRU-cache to an existing naive shrinker, to avoid revisiting known states. */
-    def caching[A](maxSize: Int)(body: Naive ?=> A): Naive ?->{body} A = handler ?=>
+    def caching[A](maxSize: Int)(body: Naive ?=> A)(using handler: Naive): A =
       val cache = new LinkedHashMap[Rand.State, Unit](16, 0.75, true):
         override def removeEldestEntry(eldest: JavaMap.Entry[Rand.State, Unit]) = size > maxSize
 
