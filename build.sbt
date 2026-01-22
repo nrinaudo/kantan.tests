@@ -1,4 +1,4 @@
-scalaVersion := "3.8.0-RC3"
+scalaVersion := "3.8.1"
 scalacOptions ++= Seq(
   "-source",
   "future",
