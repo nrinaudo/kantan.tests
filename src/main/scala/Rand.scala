@@ -123,7 +123,7 @@ object Rand:
   // Note that `tail` is a vararg of context functions rather than by-names, because you apparently cannot take
   // by-names as varargs. Also, the capset variable is because of what I'm assuming is a bug that I hope to see
   // fixed: https://users.scala-lang.org/t/suspicious-reach-capability-error/12190
-  def oneOf[A, B ^](head: => A, tail: (Rand ?->{B} A)*)(using Rand): A =
+  def oneOf[A, B^](head: => A, tail: (Rand ?->{B} A)*)(using Rand): A =
     val index = int(tail.length)
 
     if index == 0 then head
