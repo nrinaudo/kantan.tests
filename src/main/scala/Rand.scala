@@ -131,7 +131,7 @@ object Rand:
 
   def size(using Rand, Size): Int = int(Size.size)
 
-  def listOf[A](length: Int, content: => A)(using Rand): List[A] =
+  def listOf[A](length: Int, content: => A): List[A] =
     List.fill(length)(content)
 
   def list[A](content: => A)(using Rand, Size): List[A] =
@@ -143,8 +143,3 @@ object Rand:
     val head = oneOf(lowerAscii, upperAscii, '_')
 
     (head :: tail).mkString
-
-  def resize[A](s: Int, content: => A)(using Rand, Size): A =
-    Size.fork:
-      Size.size = s
-      content

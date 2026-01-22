@@ -48,3 +48,8 @@ object Size:
 
     size = oldSize
     result
+
+  def resize[A](s: Int, content: => A)(using Size): A =
+    Size.fork:
+      Size.size = s
+      content
