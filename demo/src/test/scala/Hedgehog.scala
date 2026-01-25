@@ -7,7 +7,7 @@ import kantan.tests.Assert.*
 /** Shows how to rewrite the Hedgehog examples using kantan.tests. */
 object Hedgehog extends TestSuite:
   test("example1"):
-    val x = Rand.lowerAscii.logAs("x")
+    val x = Rand.alphaLowerChar.logAs("x")
     val y = Rand.int(50).logAs("y")
 
     Assert.assert(y < 87 && x <= 'r')
@@ -41,15 +41,15 @@ object Hedgehog extends TestSuite:
 
   val cheap: Rand ?-> Item =
     val n = Rand.oneOf("sandwich", "noodles")
-    val p = USD(Rand.range(5, 10))
+    val p = USD(Rand.choose(5, 10))
 
     Item(n, p)
 
   val expensive: Rand ?-> Item =
     val n = Rand.oneOf("oculus", "vive")
-    val p = USD(Rand.range(1000, 2000))
+    val p = USD(Rand.choose(1000, 2000))
 
     Item(n, p)
 
   def order(gen: Rand ?=> Item): (Size, Rand) ?->{gen} Order =
-    Order(Rand.listOf(Rand.int(50), gen))
+    Order(Rand.listOfN(Rand.int(50), gen))

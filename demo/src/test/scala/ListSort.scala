@@ -35,7 +35,7 @@ object ListSort extends TestSuite:
   // Generative test: our implementation and the standard one yield the same result on any list.
   // We transformed the example-based one into this one simply by replacing the hard-coded input into a random one.
   test("forall input, sort(input) == input.sorted"):
-    val input    = Rand.list(Rand.int(100)).logAs("input")
+    val input    = Rand.listOf(Rand.int(100)).logAs("input")
     val observed = sort(input)
     val expected = input.sorted
 
