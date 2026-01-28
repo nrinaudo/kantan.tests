@@ -1,11 +1,21 @@
-scalaVersion := "3.8.1"
-scalacOptions ++= Seq(
-  "-source",
-  "future",
-  "-Xkind-projector:underscores",
-  "-deprecation",
-  "-experimental",
-  "-Yexplicit-nulls",
-  "-language:experimental.captureChecking"
-)
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % "test"
+lazy val root = Project(id = "kantan-tests", base = file("."))
+  .settings(moduleName := "root")
+  .settings(publish / skip := true)
+  .aggregate(core, sbtTests)
+
+lazy val core = project
+  .settings(
+    moduleName := "kantan.tests",
+    name       := "core",
+    Test / unmanagedClasspath ++= (LocalProject("core") / Compile / fullClasspath).value,
+    testFrameworks += TestFramework("kantan.tests.Framework")
+  )
+
+lazy val sbtTests = project
+  .in(file("sbt"))
+  .settings(
+    moduleName                            := "kantan.tests-sbt",
+    name                                  := "sbt",
+    libraryDependencies += "org.scala-sbt" % "test-interface" % "1.0"
+  )
+  .dependsOn(core)
