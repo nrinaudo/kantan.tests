@@ -7,12 +7,11 @@ lazy val core = project
   .settings(
     moduleName := "kantan.tests",
     name       := "core",
-    Test / unmanagedClasspath ++= (LocalProject("core") / Compile / fullClasspath).value,
-    testFrameworks += TestFramework("kantan.tests.Framework")
+    Test / unmanagedClasspath ++= (LocalProject("sbt") / Compile / fullClasspath).value,
+    testFrameworks += TestFramework("kantan.tests.sbt.Framework")
   )
 
-lazy val sbtTests = project
-  .in(file("sbt"))
+lazy val sbtTests = Project(id = "sbt", base = file("sbt"))
   .settings(
     moduleName                            := "kantan.tests-sbt",
     name                                  := "sbt",
