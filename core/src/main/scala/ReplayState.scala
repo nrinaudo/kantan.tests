@@ -5,20 +5,7 @@ import java.io.*
 import java.util.Base64
 import scala.util.Try
 
-case class ReplayState(randState: Rand.State, size: Int):
-  private def writeState(randState: List[Int], out: DataOutputStream) =
-    out.writeInt(randState.length)
-    randState.foreach(out.writeInt)
-
-  def encode: String =
-    val bytes = ByteArrayOutputStream()
-    val out   = DataOutputStream(GZIPOutputStream(bytes, true))
-
-    out.writeInt(size)
-    writeState(randState.toInts, out)
-    out.flush()
-
-    Base64.getUrlEncoder().encodeToString(bytes.toByteArray)
+case class ReplayState(randState: Rand.State, size: Int)
 
 object ReplayState:
   private def readState(in: DataInputStream) =
@@ -30,9 +17,23 @@ object ReplayState:
 
     out.result
 
+  private def writeState(randState: List[Int], out: DataOutputStream) =
+    out.writeInt(randState.length)
+    randState.foreach(out.writeInt)
+
+  def encode(state: ReplayState): String =
+    val bytes = ByteArrayOutputStream()
+    val out   = DataOutputStream(GZIPOutputStream(bytes, true))
+
+    out.writeInt(state.size)
+    writeState(state.randState.toInts, out)
+    out.close()
+
+    Base64.getEncoder().encodeToString(bytes.toByteArray)
+
   def decode(savedState: String): Option[ReplayState] =
     val result = Try:
-      val bytes     = Base64.getUrlDecoder().decode(savedState)
+      val bytes     = Base64.getDecoder().decode(savedState)
       val in        = DataInputStream(GZIPInputStream(ByteArrayInputStream(bytes)))
       val size      = in.readInt
       val randState = readState(in)

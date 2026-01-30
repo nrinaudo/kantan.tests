@@ -30,6 +30,6 @@ class ConsoleRunner(conf: Conf) extends Run:
           println(s"  Inputs (shrunk $shrinkCount time(s)):")
           inputMap.foreach:
             case (name, value) => println(s"    - $name = $value")
-        println(s"  Replay: ${replay.encode}")
+        println(s"  Replay: ${ReplayState.encode(replay)}")
 
     print(Console.RESET)

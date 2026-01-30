@@ -36,6 +36,6 @@ object RunTest:
               Log.log(s"  Inputs (shrunk $shrinkCount time(s)):", Color.Red)
               inputMap.foreach:
                 case (name, value) => Log.log(s"    - $name = $value", Color.Red)
-            Log.log(s"  Replay: ${replay.encode}", Color.Red)
+            Log.log(s"  Replay: ${ReplayState.encode(replay)}", Color.Red)
 
     body

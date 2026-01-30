@@ -23,7 +23,7 @@ object BadTest extends TestSuite:
 
   // Replays the previous test on a known failing configuration.
   // This won't shrink or try different sizes, but merely replay that one, single failing test case.
-  replay("Strings have odd lengths (failure replay)")("H4sIAAAAAAAA_2JgYGBlgGBGBjQAAAAA__8="):
+  replay("Strings have odd lengths (failure replay)")("H4sIAAAAAAAA/2JgAAMWBjQAAAAA//8DAO/tydAYAAAA"):
     val input = Rand.identifier.logAs("Input")
 
     Assert.assert(input.length % 2 != 0, s"'$input's length was even")
