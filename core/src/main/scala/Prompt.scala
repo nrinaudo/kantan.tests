@@ -11,9 +11,6 @@ package kantan.tests
 // ---------------------------------------------------------------------------------------------------------------------
 
 object Prompt:
-  def test(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
-    grow(desc)(body)
-
   object grow:
     def apply(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
       Run.run(desc, body, Plan.grow)

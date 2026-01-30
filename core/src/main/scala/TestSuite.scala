@@ -26,6 +26,8 @@ private class TestWrapper(desc: String, test: (Assert, Log, Rand, Size) ?=> Unit
   * }}}
   */
 trait TestSuite:
+  // - Building and running tests ---------------------------------------------------------------------------------------
+  // ---------------------------- ---------------------------------------------------------------------------------------
   private val testBuilder: Builder[TestWrapper, List[TestWrapper]] = List.newBuilder
 
   protected given Run:
@@ -35,3 +37,10 @@ trait TestSuite:
   def run(using Run): Unit =
     testBuilder.result.foreach: test =>
       test.run
+
+  // - Helper functions -------------------------------------------------------------------------------------------------
+  // ---------------------------- ---------------------------------------------------------------------------------------
+  /** Simple proxy to `Prompt.grow`, the most commonly use prompt. */
+  def test(desc: String)(body: (Assert, Log, Rand, Size) ?=> Unit)(using Run): Unit =
+    Prompt.grow(desc):
+      body
