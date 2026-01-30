@@ -1,7 +1,8 @@
-package kantan.tests
+package kantan.tests.demo
 
-import Prompt.*
-import Assert.*
+import kantan.tests.*
+import kantan.tests.Prompt.*
+import kantan.tests.Assert.*
 
 /** Shows how example-based tests can be misleading, and how generative ones catch incorrect assumptions.
   *

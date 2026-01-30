@@ -1,7 +1,8 @@
-package kantan.tests
+package kantan.tests.demo
 
-import Prompt.*
-import Assert.*
+import kantan.tests.*
+import kantan.tests.Prompt.*
+import kantan.tests.Assert.*
 
 /** Shows how to rewrite the Hedgehog examples using kantan.tests. */
 object Hedgehog extends TestSuite:

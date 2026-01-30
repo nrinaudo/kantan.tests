@@ -1,7 +1,8 @@
-package kantan.tests
+package kantan.tests.demo
 
-import Prompt.*
-import Assert.*
+import kantan.tests.*
+import kantan.tests.Prompt.*
+import kantan.tests.Assert.*
 
 /** Tests a hand-rolled list sorting implementation.
   *

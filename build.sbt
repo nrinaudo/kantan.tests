@@ -18,3 +18,11 @@ lazy val sbtTests = Project(id = "sbt", base = file("sbt"))
     libraryDependencies += "org.scala-sbt" % "test-interface" % "1.0"
   )
   .dependsOn(core)
+
+lazy val demo = project
+  .settings(
+    moduleName := "kantan.tests-demo",
+    name       := "demo",
+    testFrameworks += TestFramework("kantan.tests.sbt.Framework")
+  )
+  .dependsOn(core, sbtTests % Test)
